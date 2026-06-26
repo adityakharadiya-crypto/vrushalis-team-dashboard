@@ -316,6 +316,20 @@ tbody td{padding:8px 13px;font-size:12px;}
 ════════════════════════════════════════════ -->
 <div class="page active" id="tab-overview">
 
+  <!-- Date filter bar (overview tab) -->
+  <div id="overview-filter-bar" style="display:flex;align-items:center;gap:8px;padding:9px 20px;background:#0D1117;border-bottom:1px solid #1E2A3A;flex-wrap:wrap;margin-bottom:4px;">
+    <span style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;">Filter</span>
+    <select id="filter-type" style="font-size:11px;padding:4px 8px;background:#111827;color:#F9FAFB;border:1px solid #1E2A3A;border-radius:6px;cursor:pointer;" onchange="applyOverviewFilter()">
+      <option value="due">By Due Date</option>
+      <option value="created">By Created Date</option>
+    </select>
+    <input type="date" id="filter-from" style="font-size:11px;padding:4px 8px;background:#111827;color:#F9FAFB;border:1px solid #1E2A3A;border-radius:6px;" oninput="applyOverviewFilter()">
+    <span style="font-size:11px;color:#6B7280;">to</span>
+    <input type="date" id="filter-to" style="font-size:11px;padding:4px 8px;background:#111827;color:#F9FAFB;border:1px solid #1E2A3A;border-radius:6px;" oninput="applyOverviewFilter()">
+    <button onclick="applyOverviewFilter()" style="font-size:11px;padding:4px 11px;background:#2563EB;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;">Apply</button>
+    <button onclick="clearOverviewFilter()" style="font-size:11px;padding:4px 10px;background:#0D1117;color:#9CA3AF;border:1px solid #1E2A3A;border-radius:6px;cursor:pointer;">✕ Clear</button>
+    <span id="filter-label" style="font-size:11px;color:#60A5FA;margin-left:4px;"></span>
+  </div>
   <!-- Stats row -->
   <div class="stat-row">
     <div class="stat-card" style="--sc:#2563EB" onclick="openStatModal('all')" title="Click to view all active tasks">
@@ -1192,12 +1206,12 @@ function renderBrands(tasks){
 
 // ── Fetch all tasks ──
 async function fetchAllIncomplete(){
-  let tasks=[],offset=null,page=1,maxPages=6;
+  let tasks=[],offset=null,page=1,maxPages=200;
   while(page<=maxPages){
-    const pct=Math.round((page/maxPages)*80);
+    const pct=Math.min(80,Math.round((page/10)*80));
     document.getElementById('loadBar').style.width=pct+'%';
     document.getElementById('loadSub').textContent=`Fetching page ${page}… (${tasks.length} tasks loaded)`;
-    const params={project:PROJECT_ID,limit:100,opt_fields:'gid,name,due_on,completed,modified_at,permalink_url,assignee.name,memberships.project.gid,memberships.section.name,custom_fields.gid,custom_fields.name,custom_fields.display_value'};
+    const params={project:PROJECT_ID,limit:100,opt_fields:'gid,name,due_on,created_at,completed,modified_at,permalink_url,assignee.name,memberships.project.gid,memberships.section.name,custom_fields.gid,custom_fields.name,custom_fields.display_value'};
     if(offset)params.offset=offset;
     let res,parsed;
     try{
@@ -1232,6 +1246,7 @@ async function init(){
     allTasks=tasks;
     // Exclude recurring tasks from all overview/member/brand tabs
     const activeTasks=tasks.filter(t=>!isRecurring(t));
+    window._activeTasks=activeTasks;
     document.getElementById('loadBar').style.width='90%';
     document.getElementById('loadSub').textContent='Building dashboard…';
 
@@ -2068,6 +2083,35 @@ async function loadTiming(period, e){
     document.getElementById('t-load-text').textContent='Error: '+err.message;
     console.error(err);
   }
+}
+
+// ── Overview Date Filter ──────────────────────────────────────
+function applyOverviewFilter(){
+  const from=document.getElementById('filter-from').value;
+  const to=document.getElementById('filter-to').value;
+  const type=document.getElementById('filter-type').value;
+  const base=window._activeTasks||[];
+  let filtered=base;
+  if(from||to){
+    filtered=base.filter(t=>{
+      const val=type==='created'?(t.created_at||'').slice(0,10):t.due_on;
+      if(!val) return type==='due'; // no due_on → include in due filter; no created_at → exclude
+      if(from&&val<from)return false;
+      if(to&&val>to)return false;
+      return true;
+    });
+    document.getElementById('filter-label').textContent=filtered.length+' of '+base.length+' tasks match';
+  }else{
+    document.getElementById('filter-label').textContent='';
+  }
+  const stats=buildMemberStats(filtered);
+  renderOverview(filtered,stats);
+}
+function clearOverviewFilter(){
+  document.getElementById('filter-from').value='';
+  document.getElementById('filter-to').value='';
+  document.getElementById('filter-label').textContent='';
+  renderOverview(window._activeTasks||[],window._memberStats||{});
 }
 </script>
 
