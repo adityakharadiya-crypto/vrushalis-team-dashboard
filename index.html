@@ -39,6 +39,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* ── Stat cards row ── */
 .stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
+#tab-overview .stat-row{grid-template-columns:repeat(7,1fr);}
 .stat-card{background:#111827;border-radius:10px;border:1px solid #1E2A3A;padding:13px 15px;box-shadow:0 1px 3px rgba(0,0,0,.3);position:relative;overflow:hidden;cursor:pointer;transition:all .15s;}
 .stat-card:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.4);}
 .stat-card.active-filter{box-shadow:0 0 0 2px var(--sc);}
@@ -356,6 +357,16 @@ tbody td{padding:8px 13px;font-size:12px;}
       <div class="sc-label">Unassigned</div>
       <div class="sc-num" id="ov-unassigned">—</div>
       <div class="sc-sub">no owner ↗</div>
+    </div>
+    <div class="stat-card" style="--sc:#22c55e" onclick="switchTab('completed')" title="Tasks completed this week — click to see Completed tab">
+      <div class="sc-label">Completed (Week)</div>
+      <div class="sc-num" id="ov-completed">…</div>
+      <div class="sc-sub">done this week ↗</div>
+    </div>
+    <div class="stat-card" style="--sc:#0ea5e9" title="All tasks on board — completed + incomplete (loads in background)">
+      <div class="sc-label">All Tasks</div>
+      <div class="sc-num" id="ov-board-total">…</div>
+      <div class="sc-sub">completed + open</div>
     </div>
   </div>
 
@@ -943,6 +954,43 @@ function renderOverview(tasks,stats){
   document.getElementById('ov-today').textContent=today;
   document.getElementById('ov-week').textContent=week;
   document.getElementById('ov-unassigned').textContent=unassigned;
+
+  // Completed this week — background fetch
+  (async()=>{
+    try{
+      const since=addDays(-7)+'T00:00:00.000Z';
+      let total=0,offset=null,page=1;
+      while(page<=4){
+        const params={project:PROJECT_ID,limit:100,opt_fields:'gid,completed,assignee.name',completed_since:since};
+        if(offset)params.offset=offset;
+        const parsed=await asanaGet(params);
+        const batch=(parsed.data||[]).filter(tk=>tk.completed&&tk.assignee&&TEAM_SET.has(tk.assignee.name));
+        total+=batch.length;
+        const np=parsed.next_page;
+        if(!np||!np.offset)break;
+        offset=np.offset;page++;
+      }
+      document.getElementById('ov-completed').textContent=total;
+    }catch(e){document.getElementById('ov-completed').textContent='—';}
+  })();
+
+  // All Tasks (completed + incomplete) — background fetch, gid only
+  document.getElementById('ov-board-total').textContent='…';
+  (async()=>{
+    try{
+      let total=0,bOffset=null,bPage=1;
+      while(bPage<=200){
+        const bp={project:PROJECT_ID,limit:100,opt_fields:'gid',completed_since:'1970-01-01'};
+        if(bOffset)bp.offset=bOffset;
+        const bp2=await asanaGet(bp);
+        total+=(bp2.data||[]).length;
+        const bnp=bp2.next_page;
+        if(!bnp||!bnp.offset)break;
+        bOffset=bnp.offset;bPage++;
+      }
+      document.getElementById('ov-board-total').textContent=total.toLocaleString();
+    }catch(e){document.getElementById('ov-board-total').textContent='—';}
+  })();
 
   // Overdue by member chart
   const ovMembers=ALL_MEMBERS.map(n=>({name:n,ov:stats[n]?.overdue||0})).filter(x=>x.ov>0).sort((a,b)=>b.ov-a.ov).slice(0,14);
