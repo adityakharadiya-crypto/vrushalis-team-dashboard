@@ -1,0 +1,2172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vrushali's Team Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+:root{color-scheme:dark;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0B0F1A;color:#F9FAFB;min-height:100vh;}
+
+/* ── Loading overlay ── */
+#loader{position:fixed;inset:0;background:rgba(240,242,245,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:9999;}
+.spinner{width:38px;height:38px;border:3px solid #1E2A3A;border-top-color:#2563EB;border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.load-title{font-size:15px;font-weight:700;color:#F9FAFB;}
+.load-sub{font-size:12px;color:#6B7280;}
+.load-progress{width:220px;height:5px;background:#1E2A3A;border-radius:3px;overflow:hidden;}
+.load-bar{height:100%;background:linear-gradient(90deg,#2563EB,#3B82F6);border-radius:3px;transition:width .3s;}
+
+/* ── Top bar ── */
+.topbar{background:#0D1117;border-bottom:1px solid #1E2A3A;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.topbar-left{display:flex;align-items:center;gap:10px;}
+.logo{display:flex;align-items:center;flex-shrink:0;}
+.topbar-title{font-size:17px;font-weight:800;}
+.topbar-sub{font-size:11px;color:#6B7280;}
+.updated-tag{font-size:11px;color:#9CA3AF;background:#111827;border:1px solid #1E2A3A;border-radius:20px;padding:4px 11px;}
+
+/* ── Tab nav ── */
+.tabnav{background:#0D1117;border-bottom:1px solid #1E2A3A;padding:0 20px;display:flex;gap:0;}
+.tab-btn{padding:12px 18px;font-size:13px;font-weight:600;color:#6B7280;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap;}
+.tab-btn:hover{color:#2563EB;}
+.tab-btn.active{color:#2563EB;border-bottom-color:#2563EB;}
+
+/* ── Page content ── */
+.page{display:none;padding:18px 20px;}
+.page.active{display:block;}
+
+/* ── Stat cards row ── */
+.stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
+.stat-card{background:#111827;border-radius:10px;border:1px solid #1E2A3A;padding:13px 15px;box-shadow:0 1px 3px rgba(0,0,0,.3);position:relative;overflow:hidden;cursor:pointer;transition:all .15s;}
+.stat-card:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.4);}
+.stat-card.active-filter{box-shadow:0 0 0 2px var(--sc);}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--sc);}
+.sc-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6B7280;margin-bottom:4px;}
+.sc-num{font-size:26px;font-weight:900;color:var(--sc);line-height:1;}
+.sc-sub{font-size:10px;color:#b0bac7;margin-top:3px;}
+
+/* ── Panels ── */
+.grid2{display:grid;grid-template-columns:1fr 320px;gap:14px;align-items:start;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.panel{background:#111827;border-radius:10px;border:1px solid #1E2A3A;box-shadow:0 1px 3px rgba(0,0,0,.3);overflow:hidden;}
+.ph{padding:12px 16px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;justify-content:space-between;}
+.ph-title{font-size:13px;font-weight:700;}
+.ph-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:#1E2A3A;color:#9CA3AF;}
+.ph-right{display:flex;align-items:center;gap:6px;}
+.chart-wrap{padding:14px 16px;}
+.chart-h200{height:200px;}
+.chart-h180{height:180px;}
+
+/* ── Section pipeline ── */
+.pipeline{padding:12px 16px;display:flex;flex-direction:column;gap:7px;max-height:300px;overflow-y:auto;}
+.pipe-row{display:flex;align-items:center;gap:8px;}
+.pipe-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.pipe-name{font-size:12px;color:#F9FAFB;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;}
+.pipe-bar-wrap{width:100px;background:#1E2A3A;border-radius:3px;height:6px;}
+.pipe-bar-fill{height:100%;border-radius:3px;}
+.pipe-cnt{font-size:11px;font-weight:700;color:#F9FAFB;width:24px;text-align:right;}
+.pipe-flag{font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;}
+.flag-hot{background:#1f0a0a;color:#F87171;}
+.flag-ok{background:#0a1f12;color:#34D399;}
+
+/* ── Member cards ── */
+.controls-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.ctrl-label{font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;}
+select,.srch{font-size:12px;color:#F9FAFB;background:#0D1117;border:1px solid #1E2A3A;border-radius:6px;padding:6px 10px;outline:none;cursor:pointer;transition:border-color .15s;}
+select:hover,.srch:hover{border-color:#2563EB;}
+.srch{width:170px;}
+.srch::placeholder{color:#c0c9d4;}
+.vt{display:flex;gap:4px;margin-left:auto;}
+.vbtn{font-size:12px;padding:5px 10px;border:1px solid #1E2A3A;background:#0D1117;border-radius:6px;cursor:pointer;color:#9CA3AF;font-weight:500;transition:all .15s;}
+.vbtn.active{background:#2563EB;color:white;border-color:#2563EB;}
+
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:11px;}
+.mc{background:#111827;border-radius:11px;border:1px solid #1E2A3A;padding:13px;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:all .15s;position:relative;overflow:hidden;}
+.mc:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.08);}
+.mc.sme::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:#f59e0b;}
+.mc.member::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:#2563EB;}
+.mc.dimmed{opacity:.5;}
+.mc-head{display:flex;align-items:center;gap:9px;margin-bottom:11px;}
+.av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:white;flex-shrink:0;}
+.mc-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.role-chip{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:2px;}
+.chip-sme{background:#1C1500;color:#F59E0B;}
+.chip-mem{background:#0f1f3d;color:#60A5FA;}
+.metrics4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:9px;}
+.met{border-radius:7px;padding:6px 3px;text-align:center;}
+.met-num{font-size:17px;font-weight:900;line-height:1;}
+.met-lbl{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-top:1px;color:#6B7280;}
+.met-total{background:#0f1f3d;}.met-total .met-num{color:#60A5FA;}
+.met-ov{background:#1f0a0a;}.met-ov .met-num{color:#F87171;}
+.met-td{background:#1C1500;}.met-td .met-num{color:#f59e0b;}
+.met-wk{background:#0a1f12;}.met-wk .met-num{color:#34D399;}
+.bar-lbl{font-size:10px;color:#6B7280;font-weight:600;margin-bottom:3px;}
+.segbar{display:flex;height:6px;border-radius:4px;overflow:hidden;gap:1px;}
+.seg{height:100%;min-width:2px;}
+.top3{margin-top:7px;display:flex;flex-direction:column;gap:3px;}
+.t3row{display:flex;align-items:center;gap:5px;}
+.t3dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.t3name{font-size:10px;color:#9CA3AF;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.t3cnt{font-size:10px;font-weight:700;}
+
+/* table */
+.tbl-wrap{overflow:auto;max-height:520px;}
+table{width:100%;border-collapse:collapse;}
+thead th{padding:9px 13px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6B7280;background:#0D1117;border-bottom:1px solid #1E2A3A;text-align:left;white-space:nowrap;position:sticky;top:0;cursor:pointer;}
+thead th:hover{color:#2563EB;}
+tbody tr{border-bottom:1px solid #f8f9fa;transition:background .1s;}
+tbody tr:hover{background:#0D1117;}
+tbody tr:last-child{border-bottom:none;}
+tbody td{padding:8px 13px;font-size:12px;}
+.trow-sme td:first-child{border-left:3px solid #f59e0b;}
+.trow-mem td:first-child{border-left:3px solid transparent;}
+.tname{display:flex;align-items:center;gap:7px;font-weight:600;}
+.tav{width:24px;height:24px;border-radius:50%;font-size:9px;font-weight:800;color:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.num-ov{color:#ef4444;font-weight:700;}
+.num-td{color:#f59e0b;font-weight:700;}
+.num-wk{color:#10b981;font-weight:700;}
+.num-tot{color:#2563EB;font-weight:700;}
+.num-done{color:#22c55e;font-weight:700;}
+
+/* ── Completed tab ── */
+.period-bar{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
+.period-btn{padding:6px 14px;border-radius:20px;border:1px solid #1E2A3A;background:#0D1117;font-size:12px;font-weight:600;color:#9CA3AF;cursor:pointer;transition:all .15s;}
+.period-btn:hover{border-color:#2563EB;color:#2563EB;}
+.period-btn.active{background:#2563EB;color:white;border-color:#2563EB;}
+.period-note{font-size:11px;color:#6B7280;margin-left:auto;}
+.comp-loading{display:flex;align-items:center;gap:10px;padding:30px;color:#6B7280;font-size:13px;}
+
+/* ── Brand tab ── */
+.brand-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.brand-list{padding:10px 14px;display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;}
+.brand-row{display:flex;align-items:center;gap:8px;}
+.brand-name{font-size:12px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.brand-bar-wrap{width:80px;background:#1E2A3A;border-radius:3px;height:5px;}
+.brand-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#2563EB,#3B82F6);}
+.brand-cnt{font-size:11px;font-weight:700;color:#9CA3AF;width:24px;text-align:right;}
+
+/* ── SME queue ── */
+.sme-list{padding:10px 14px;display:flex;flex-direction:column;gap:7px;max-height:280px;overflow-y:auto;}
+.sme-task{background:#0D1117;border:1px solid #1E2A3A;border-radius:7px;padding:8px 10px;}
+.sme-task-name{font-size:12px;font-weight:500;margin-bottom:3px;}
+.sme-meta{display:flex;gap:6px;align-items:center;}
+.sme-due{font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;}
+.sme-assignee{font-size:10px;color:#6B7280;}
+
+.empty-state{padding:30px;text-align:center;color:#6B7280;font-size:13px;}
+.section-spacer{margin-bottom:14px;}
+
+/* ── Timing tab ── */
+.timing-note{font-size:11px;color:#9CA3AF;background:#1C1500;border:1px solid #78350F;border-radius:7px;padding:8px 13px;margin-bottom:14px;display:flex;align-items:center;gap:7px;}
+.timing-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.tm-card{background:#111827;border-radius:10px;border:1px solid #1E2A3A;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.3);position:relative;overflow:hidden;}
+.tm-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--tc);}
+.tm-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6B7280;margin-bottom:4px;}
+.tm-val{font-size:24px;font-weight:900;color:var(--tc);line-height:1;}
+.tm-sub{font-size:10px;color:#b0bac7;margin-top:3px;}
+.timing-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.member-timing-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:11px;margin-top:14px;}
+.mtc{background:#111827;border-radius:11px;border:1px solid #1E2A3A;padding:13px;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:all .15s;position:relative;overflow:hidden;}
+.mtc:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.08);}
+.mtc-head{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
+.mtc-stats{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:9px;}
+.mtc-stat{background:#111827;border-radius:7px;padding:7px 9px;}
+.mtc-stat-val{font-size:18px;font-weight:900;line-height:1;}
+.mtc-stat-lbl{font-size:9px;color:#6B7280;font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-top:1px;}
+.otb{display:flex;height:7px;border-radius:4px;overflow:hidden;gap:1px;margin-bottom:4px;}
+.otb-early{background:#10b981;}
+.otb-ontime{background:#2563EB;}
+.otb-late{background:#ef4444;}
+.otb-nodue{background:#1E2A3A;}
+.otb-legend{display:flex;gap:8px;flex-wrap:wrap;}
+.otb-leg-item{display:flex;align-items:center;gap:3px;font-size:9px;color:#9CA3AF;}
+.otb-leg-dot{width:7px;height:7px;border-radius:50%;}
+.perf-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;display:inline-block;margin-top:4px;}
+.perf-great{background:#0a1f12;color:#34D399;}
+.perf-good{background:#0f1f3d;color:#60A5FA;}
+.perf-warn{background:#1C1500;color:#F59E0B;}
+.perf-risk{background:#1f0a0a;color:#F87171;}
+.timing-table-wrap{background:#111827;border-radius:10px;border:1px solid #1E2A3A;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+.t-period-bar{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
+.t-period-btn{padding:6px 14px;border-radius:20px;border:1px solid #1E2A3A;background:#0D1117;font-size:12px;font-weight:600;color:#9CA3AF;cursor:pointer;transition:all .15s;}
+.t-period-btn:hover{border-color:#2563EB;color:#2563EB;}
+.t-period-btn.active{background:#2563EB;color:white;border-color:#2563EB;}
+.t-note-right{font-size:11px;color:#6B7280;margin-left:auto;}
+.t-vt{display:flex;gap:4px;margin-left:8px;}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#d3d9e4;border-radius:2px;}
+
+/* ── Task modal ── */
+.task-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:flex-start;justify-content:flex-end;}
+.task-modal{background:#111827;width:420px;height:100vh;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,.5);display:flex;flex-direction:column;}
+.task-modal-header{padding:16px 18px;border-bottom:1px solid #1E2A3A;display:flex;align-items:center;gap:10px;position:sticky;top:0;background:#111827;z-index:1;}
+.task-modal-close{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:#9CA3AF;line-height:1;padding:2px 6px;border-radius:5px;}
+.task-modal-close:hover{background:#1E2A3A;}
+.task-modal-body{padding:12px 16px;flex:1;}
+.task-modal-section{margin-bottom:14px;}
+.task-modal-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.task-link-row{display:flex;align-items:flex-start;gap:8px;padding:7px 9px;border-radius:7px;border:1px solid #1E2A3A;background:#0D1117;margin-bottom:5px;transition:all .15s;}
+.task-link-row:hover{border-color:#2563EB;background:#131f35;}
+.task-link-row a{font-size:12px;font-weight:500;color:#F9FAFB;text-decoration:none;flex:1;line-height:1.4;}
+.task-link-row a:hover{color:#2563EB;}
+.task-link-icon{font-size:14px;flex-shrink:0;opacity:.5;}
+.task-link-meta{display:flex;gap:5px;margin-top:3px;flex-wrap:wrap;}
+
+
+/* ── AI Chat ── */
+#ai-fab{position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:#111827;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(99,102,241,.4);display:flex;align-items:center;justify-content:center;font-size:22px;z-index:1000;transition:transform .2s;}
+#ai-fab:hover{transform:scale(1.08);}
+#ai-panel{position:fixed;bottom:88px;right:24px;width:370px;max-height:540px;background:#111827;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.5);display:none;flex-direction:column;z-index:1000;overflow:hidden;border:1px solid #1E2A3A;}
+#ai-panel.open{display:flex;}
+#ai-header{background:#111827;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;}
+#ai-header-left{display:flex;align-items:center;gap:10px;}
+#ai-avatar{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:16px;}
+#ai-title{font-size:14px;font-weight:700;color:white;}
+#ai-sub{font-size:11px;color:rgba(255,255,255,.75);}
+#ai-close{background:none;border:none;color:white;cursor:pointer;font-size:18px;padding:2px 6px;border-radius:6px;opacity:.8;}
+#ai-close:hover{opacity:1;background:rgba(255,255,255,.15);}
+#ai-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:200px;}
+.ai-msg{max-width:90%;padding:9px 12px;border-radius:12px;font-size:12px;line-height:1.6;}
+.ai-msg.user{background:#0f1f3d;color:#93C5FD;align-self:flex-end;border-bottom-right-radius:3px;}
+.ai-msg.bot{background:#0D1117;color:#F9FAFB;align-self:flex-start;border-bottom-left-radius:3px;border:1px solid #1E2A3A;width:100%;}
+.ai-msg.bot b{color:#2563EB;}
+.ai-msg.bot .review-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-bottom:6px;}
+.badge-great{background:#dcfce7;color:#16a34a;}
+.badge-good{background:#1C1500;color:#FBBF24;}
+.badge-watch{background:#1f0a0a;color:#F87171;}
+.ai-typing{display:flex;gap:4px;padding:6px 4px;}
+.ai-dot{width:7px;height:7px;border-radius:50%;background:#3B82F6;animation:bounce .8s infinite;}
+.ai-dot:nth-child(2){animation-delay:.15s;}
+.ai-dot:nth-child(3){animation-delay:.3s;}
+@keyframes bounce{0%,80%,100%{transform:translateY(0);}40%{transform:translateY(-6px);}}
+#ai-suggestions{padding:0 12px 10px;display:flex;flex-wrap:wrap;gap:5px;}
+.ai-chip{font-size:10px;padding:4px 9px;background:#0f1f3d;color:#60A5FA;border:none;border-radius:20px;cursor:pointer;font-weight:600;transition:background .15s;}
+.ai-chip:hover{background:#1E2A3A;}
+#ai-input-row{padding:10px 12px;border-top:1px solid #f0f2f5;display:flex;gap:8px;}
+#ai-input{flex:1;font-size:12px;padding:8px 11px;border:1px solid #1E2A3A;border-radius:8px;outline:none;font-family:inherit;}
+#ai-input:focus{border-color:#2563EB;}
+#ai-send{background:#2563EB;border:none;border-radius:8px;color:white;padding:8px 12px;cursor:pointer;font-size:16px;transition:background .15s;}
+#ai-send:hover{background:#4f46e5;}
+#ai-send:disabled{background:#c7d2fe;cursor:not-allowed;}
+
+</style>
+</head>
+<body>
+
+<!-- Loader -->
+
+<!-- ── PAT entry modal ── -->
+<div id="pat-modal" style="position:fixed;inset:0;background:rgba(15,20,30,.75);z-index:99999;display:none;align-items:center;justify-content:center;">
+  <div style="background:#111827;border-radius:16px;padding:36px;width:460px;box-shadow:0 24px 64px rgba(0,0,0,.7);border:1px solid #1E2A3A;">
+    <div style="font-size:22px;font-weight:800;margin-bottom:6px">🔑 Connect to Asana</div>
+    <div style="font-size:13px;color:#9CA3AF;margin-bottom:24px;line-height:1.6">Enter your Asana Personal Access Token. It is saved locally in your browser — you only need to do this once.</div>
+    <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Personal Access Token</div>
+    <input id="pat-input" type="password" placeholder="1/1234567890:abcdef…" autocomplete="off"
+      style="width:100%;border:1.5px solid #1E2A3A;border-radius:8px;padding:10px 14px;font-size:13px;outline:none;margin-bottom:8px;font-family:monospace"
+      onkeydown="if(event.key==='Enter')savePat()">
+    <div style="font-size:11px;color:#a0aab8;margin-bottom:24px">
+      Get your token → <a href="https://app.asana.com/0/my-apps" target="_blank" style="color:#2563EB;font-weight:600">app.asana.com/0/my-apps</a>
+      → Personal Access Tokens → Create new token
+    </div>
+    <button onclick="savePat()" style="width:100%;background:#2563EB;color:white;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.2px">
+      Load Dashboard →
+    </button>
+    <div id="pat-error" style="margin-top:10px;font-size:12px;color:#ef4444;text-align:center;display:none"></div>
+  </div>
+</div>
+
+<div id="loader">
+  <div class="spinner"></div>
+  <div class="load-title">Loading Vrushali's Team Dashboard</div>
+  <div class="load-progress"><div class="load-bar" id="loadBar" style="width:5%"></div></div>
+  <div class="load-sub" id="loadSub">Fetching incomplete tasks…</div>
+</div>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <img src="https://cdn.prod.website-files.com/67d327c7ca817d803c46c86b/6947eebea70bf0d7e9b94d8a_08fef4496c61cdc52e9b7824c306795a_pattern_footer_logo.svg" alt="Pattern" style="height:28px;width:auto;flex-shrink:0;filter:brightness(0) invert(1);">
+    <div>
+      <div class="topbar-title">Vrushali's Team</div>
+      <div class="topbar-sub">36 Members · 3 SMEs · Project 1213816975277804</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div class="updated-tag" id="updatedTag">Loading…</div>
+    <button id="refreshBtn" onclick="refreshDashboard()" title="Reload live data from Asana" style="font-size:11px;padding:4px 11px;border:1px solid #1E2A3A;border-radius:20px;background:#111827;color:#2563EB;cursor:pointer;font-weight:700;">↻ Refresh</button>
+  </div>
+</div>
+
+<!-- Tab nav -->
+<div class="tabnav">
+  <button class="tab-btn active" onclick="switchTab('overview')">📊 Overview</button>
+  <button class="tab-btn" onclick="switchTab('members')">👥 Members</button>
+  <button class="tab-btn" onclick="switchTab('completed')">✅ Completed</button>
+  <button class="tab-btn" onclick="switchTab('brands')">🏷️ Brands</button>
+  <button class="tab-btn" onclick="switchTab('timing')">⏱️ Timing</button>
+  <button class="tab-btn" onclick="switchTab('recurring')">🔄 Recurring</button>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     TAB 1: OVERVIEW
+════════════════════════════════════════════ -->
+<div class="page active" id="tab-overview">
+
+  <!-- Stats row -->
+  <div class="stat-row">
+    <div class="stat-card" style="--sc:#2563EB" onclick="openStatModal('all')" title="Click to view all active tasks">
+      <div class="sc-label">Incomplete</div>
+      <div class="sc-num" id="ov-total">—</div>
+      <div class="sc-sub">open tasks ↗</div>
+    </div>
+    <div class="stat-card" style="--sc:#ef4444" onclick="openStatModal('overdue')" title="Click to view overdue tasks">
+      <div class="sc-label">Overdue</div>
+      <div class="sc-num" id="ov-overdue">—</div>
+      <div class="sc-sub">past due ↗</div>
+    </div>
+    <div class="stat-card" style="--sc:#f59e0b" onclick="openStatModal('today')" title="Click to view tasks due today">
+      <div class="sc-label">Due Today</div>
+      <div class="sc-num" id="ov-today">—</div>
+      <div class="sc-sub">today ↗</div>
+    </div>
+    <div class="stat-card" style="--sc:#10b981" onclick="openStatModal('week')" title="Click to view tasks due this week">
+      <div class="sc-label">This Week</div>
+      <div class="sc-num" id="ov-week">—</div>
+      <div class="sc-sub">next 7 days ↗</div>
+    </div>
+    <div class="stat-card" style="--sc:#8b5cf6" onclick="openStatModal('unassigned')" title="Click to view unassigned tasks">
+      <div class="sc-label">Unassigned</div>
+      <div class="sc-num" id="ov-unassigned">—</div>
+      <div class="sc-sub">no owner ↗</div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <!-- Left -->
+    <div style="display:flex;flex-direction:column;gap:14px;">
+
+      <!-- Overdue by member bar chart -->
+      <div class="panel">
+        <div class="ph"><div class="ph-title">🔴 Overdue by Member</div></div>
+        <div class="chart-wrap chart-h200"><canvas id="overdueChart"></canvas></div>
+      </div>
+
+      <!-- Due this week timeline -->
+      <div class="panel">
+        <div class="ph"><div class="ph-title">📅 Due This Week — Daily Breakdown</div></div>
+        <div class="chart-wrap chart-h180"><canvas id="weekChart"></canvas></div>
+      </div>
+
+      <!-- Team health score -->
+      <div class="panel">
+        <div class="ph">
+          <div class="ph-title">💚 Team Health</div>
+          <span class="ph-badge" id="health-score">—</span>
+        </div>
+        <div class="chart-wrap chart-h180"><canvas id="healthChart"></canvas></div>
+      </div>
+
+    </div>
+
+    <!-- Right -->
+    <div style="display:flex;flex-direction:column;gap:14px;">
+
+      <!-- Section pipeline / bottlenecks -->
+      <div class="panel">
+        <div class="ph">
+          <div class="ph-title">⚡ Section Pipeline</div>
+          <span class="ph-badge" id="bottleneck-label">Bottleneck detection</span>
+        </div>
+        <div class="pipeline" id="pipelineList"></div>
+      </div>
+
+      <!-- Unassigned tasks list -->
+      <div class="panel">
+        <div class="ph">
+          <div class="ph-title">❗ Unassigned Tasks</div>
+          <span class="ph-badge" id="unassigned-badge">0</span>
+        </div>
+        <div id="unassignedList" style="max-height:200px;overflow-y:auto;padding:8px 14px;display:flex;flex-direction:column;gap:5px;"></div>
+      </div>
+
+      <!-- Escalation watch -->
+      <div class="panel">
+        <div class="ph">
+          <div class="ph-title">🚨 Escalation & Review Queue</div>
+          <span class="ph-badge" id="escal-badge">0</span>
+        </div>
+        <div id="escalList" style="max-height:200px;overflow-y:auto;padding:8px 14px;display:flex;flex-direction:column;gap:5px;"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     TAB 2: MEMBERS
+════════════════════════════════════════════ -->
+<div class="page" id="tab-members">
+  <div class="controls-bar">
+    <span class="ctrl-label">Sort:</span>
+    <select id="m-sort" onchange="renderMembers()">
+      <option value="name">Name A→Z</option>
+      <option value="total">Most Tasks</option>
+      <option value="overdue">Most Overdue</option>
+      <option value="week">Due This Week</option>
+    </select>
+    <span class="ctrl-label" style="margin-left:6px;">Show:</span>
+    <select id="m-filter" onchange="renderMembers()">
+      <option value="all">All (Members + SMEs)</option>
+      <option value="members">Members Only</option>
+      <option value="smes">SMEs Only</option>
+      <option value="with-tasks">Has Tasks</option>
+      <option value="overdue">Has Overdue</option>
+    </select>
+    <input class="srch" id="m-search" placeholder="🔍 Search member…" oninput="renderMembers()" />
+    <div class="vt">
+      <button class="vbtn active" id="vbtn-cards" onclick="setMemberView('cards')">⊞ Cards</button>
+      <button class="vbtn" id="vbtn-table" onclick="setMemberView('table')">☰ Table</button>
+    </div>
+  </div>
+
+  <!-- Cards -->
+  <div class="cards-grid" id="memberCards"></div>
+
+  <!-- Table -->
+  <div id="memberTable" style="display:none;">
+    <div class="panel">
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th onclick="setMSort('total')">Total ↕</th>
+              <th onclick="setMSort('overdue')">Overdue ↕</th>
+              <th onclick="setMSort('today')">Today ↕</th>
+              <th onclick="setMSort('week')">This Week ↕</th>
+              <th onclick="setMSort('noDue')">No Date ↕</th>
+              <th>Top Section</th>
+            </tr>
+          </thead>
+          <tbody id="memberTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     TAB 3: COMPLETED
+════════════════════════════════════════════ -->
+<div class="page" id="tab-completed">
+  <div class="period-bar">
+    <button class="period-btn" onclick="loadCompleted('day')">Today</button>
+    <button class="period-btn" onclick="loadCompleted('week')">This Week</button>
+    <button class="period-btn" onclick="loadCompleted('month')">This Month</button>
+    <button class="period-btn" onclick="loadCompleted('year')">This Year</button>
+    <button class="period-btn" onclick="loadCompleted('all')">So Far (All Time)</button>
+    <span class="period-note" id="comp-note">Select a period to load</span>
+  </div>
+
+  <div id="comp-loading" class="comp-loading" style="display:none;">
+    <div class="spinner" style="width:22px;height:22px;border-width:2px;"></div>
+    <span id="comp-load-text">Fetching completed tasks…</span>
+  </div>
+
+  <div id="comp-content" style="display:none;">
+    <div class="stat-row" style="grid-template-columns:repeat(4,1fr);">
+      <div class="stat-card" style="--sc:#22c55e">
+        <div class="sc-label">Tasks Done</div>
+        <div class="sc-num" id="comp-total">—</div>
+        <div class="sc-sub">in period</div>
+      </div>
+      <div class="stat-card" style="--sc:#2563EB">
+        <div class="sc-label">Members Active</div>
+        <div class="sc-num" id="comp-members">—</div>
+        <div class="sc-sub">contributed</div>
+      </div>
+      <div class="stat-card" style="--sc:#f59e0b">
+        <div class="sc-label">Top Performer</div>
+        <div class="sc-num" id="comp-top" style="font-size:14px;margin-top:4px;">—</div>
+        <div class="sc-sub" id="comp-top-cnt"></div>
+      </div>
+      <div class="stat-card" style="--sc:#8b5cf6">
+        <div class="sc-label">Avg Per Member</div>
+        <div class="sc-num" id="comp-avg">—</div>
+        <div class="sc-sub">tasks done</div>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-bottom:14px;">
+      <div class="panel">
+        <div class="ph"><div class="ph-title">✅ Tasks Completed — by Member</div></div>
+        <div class="chart-wrap chart-h200"><canvas id="compChart"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="ph">
+          <div class="ph-title">📋 Member Breakdown</div>
+          <span class="ph-badge" id="comp-table-badge">0</span>
+        </div>
+        <div class="tbl-wrap" style="max-height:250px;">
+          <table>
+            <thead><tr><th>Member</th><th>Done</th><th>Role</th></tr></thead>
+            <tbody id="compTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="comp-placeholder" style="padding:60px;text-align:center;color:#9ba8b8;">
+    <div style="font-size:32px;margin-bottom:10px;">✅</div>
+    <div style="font-size:14px;font-weight:600;margin-bottom:6px;">Choose a time period above</div>
+    <div style="font-size:12px;">See how many tasks each member has completed</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     TAB 4: BRANDS
+════════════════════════════════════════════ -->
+<div class="page" id="tab-brands">
+  <div class="stat-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
+    <div class="stat-card" style="--sc:#2563EB">
+      <div class="sc-label">Unique Brands</div>
+      <div class="sc-num" id="br-count">—</div>
+      <div class="sc-sub">in open tasks</div>
+    </div>
+    <div class="stat-card" style="--sc:#f97316">
+      <div class="sc-label">Marketplaces</div>
+      <div class="sc-num" id="mkt-count">—</div>
+      <div class="sc-sub">active</div>
+    </div>
+    <div class="stat-card" style="--sc:#ec4899">
+      <div class="sc-label">Review Queue</div>
+      <div class="sc-num" id="review-count">—</div>
+      <div class="sc-sub">awaiting SME</div>
+    </div>
+  </div>
+
+  <div class="brand-grid">
+    <div class="panel">
+      <div class="ph"><div class="ph-title">🏷️ Top Brands by Open Tasks</div></div>
+      <div class="chart-wrap chart-h200"><canvas id="brandChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><div class="ph-title">🛒 Marketplace Split</div></div>
+      <div class="chart-wrap chart-h200"><canvas id="mktChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-title">📋 Brand Task List</div>
+        <span class="ph-badge" id="brand-list-badge">0</span>
+      </div>
+      <div class="brand-list" id="brandList"></div>
+    </div>
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-title">🔍 SME Review Queue</div>
+        <span class="ph-badge" id="sme-queue-badge">0</span>
+      </div>
+      <div class="sme-list" id="smeQueueList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     TAB 5: TIMING
+════════════════════════════════════════════ -->
+<div class="page" id="tab-timing">
+
+  <!-- ── Sub-tab toggle ── -->
+  <div style="display:flex;gap:6px;margin-bottom:16px;">
+    <button class="vbtn active" id="stab-live" onclick="setSubTab('live')">📍 Live Status Tracking</button>
+    <button class="vbtn" id="stab-comp" onclick="setSubTab('comp')">⏱️ Completion Analysis</button>
+  </div>
+
+  <!-- ════ LIVE STATUS TRACKING ════ -->
+  <div id="subtab-live">
+
+    <div class="timing-note">
+      ℹ️ <span><strong>"Status" custom field</strong> (gid: 1213815728728280) drives your section rules. Current value is readable live. <strong>Status Age</strong> = <em>now − modified_at</em> (resets on any task edit — best available proxy without Asana Audit API).</span>
+    </div>
+
+    <!-- Team status summary -->
+    <div id="status-summary-row" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;"></div>
+
+    <!-- Stuck threshold controls -->
+    <div class="controls-bar" style="margin-bottom:12px;">
+      <span class="ctrl-label">Flag stuck after:</span>
+      <select id="stuck-threshold" onchange="renderStatusTracking(allTasks)">
+        <option value="2">2 days</option>
+        <option value="3" selected>3 days</option>
+        <option value="5">5 days</option>
+        <option value="7">7 days</option>
+      </select>
+      <span class="ctrl-label" style="margin-left:10px;">Sort members by:</span>
+      <select id="status-sort" onchange="renderStatusTracking(allTasks)">
+        <option value="stuck">Most Stuck Tasks</option>
+        <option value="inprogress">Most In Progress</option>
+        <option value="total">Total Tasks</option>
+        <option value="name">Name</option>
+      </select>
+      <span id="status-last-updated" style="font-size:11px;color:#6B7280;margin-left:auto;"></span>
+    </div>
+
+    <!-- Two-col layout: member status cards + stuck tasks panel -->
+    <div class="grid2" style="margin-bottom:14px;">
+      <!-- Member status breakdown cards -->
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Member Status Breakdown</div>
+        <div id="status-member-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;"></div>
+      </div>
+      <!-- Right: stuck tasks + in-progress list -->
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="panel">
+          <div class="ph">
+            <div class="ph-title">🚨 Stuck Tasks</div>
+            <span class="ph-badge" id="stuck-badge">0</span>
+          </div>
+          <div id="stuck-list" style="max-height:320px;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column;gap:5px;"></div>
+        </div>
+        <div class="panel">
+          <div class="ph">
+            <div class="ph-title">🟢 In Progress Right Now</div>
+            <span class="ph-badge" id="inprog-badge">0</span>
+          </div>
+          <div id="inprog-list" style="max-height:220px;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column;gap:5px;"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════ COMPLETION ANALYSIS ════ -->
+  <div id="subtab-comp" style="display:none;">
+
+  <div class="timing-note">
+    ℹ️ <span><strong>How this works:</strong> Completion time = task <em>created_at</em> → <em>completed_at</em>. Due date performance = <em>completed_at</em> vs <em>due_on</em>. Tasks without a due date are excluded from on-time calculations.</span>
+  </div>
+
+  <!-- Period selector -->
+  <div class="t-period-bar">
+    <button class="t-period-btn" onclick="loadTiming('week',event)">This Week</button>
+    <button class="t-period-btn" onclick="loadTiming('month',event)">This Month</button>
+    <button class="t-period-btn" onclick="loadTiming('quarter',event)">This Quarter</button>
+    <button class="t-period-btn" onclick="loadTiming('year',event)">This Year</button>
+    <button class="t-period-btn" onclick="loadTiming('all',event)">All Time</button>
+    <div class="t-vt">
+      <button class="vbtn active" id="tv-cards" onclick="setTimingView('cards')">⊞ Cards</button>
+      <button class="vbtn" id="tv-table" onclick="setTimingView('table')">☰ Table</button>
+    </div>
+    <span class="t-note-right" id="t-period-note">Select a period to load</span>
+  </div>
+
+  <!-- Loading -->
+  <div id="t-loading" style="display:none;padding:30px;display:none;align-items:center;gap:10px;color:#6B7280;font-size:13px;">
+    <div class="spinner" style="width:22px;height:22px;border-width:2px;flex-shrink:0;"></div>
+    <span id="t-load-text">Fetching completed tasks…</span>
+  </div>
+
+  <!-- Placeholder -->
+  <div id="t-placeholder" style="padding:60px;text-align:center;color:#9ba8b8;">
+    <div style="font-size:36px;margin-bottom:10px;">⏱️</div>
+    <div style="font-size:14px;font-weight:600;margin-bottom:6px;">Select a time period above</div>
+    <div style="font-size:12px;">Analyse how quickly each member completes tasks vs their due dates</div>
+  </div>
+
+  <!-- Content -->
+  <div id="t-content" style="display:none;">
+
+    <!-- Team summary cards -->
+    <div class="timing-grid">
+      <div class="tm-card" style="--tc:#2563EB">
+        <div class="tm-label">Avg Completion Time</div>
+        <div class="tm-val" id="t-avg-days">—</div>
+        <div class="tm-sub">days (created → done)</div>
+      </div>
+      <div class="tm-card" style="--tc:#10b981">
+        <div class="tm-label">On-Time Rate</div>
+        <div class="tm-val" id="t-ontime-pct">—</div>
+        <div class="tm-sub">tasks with due dates</div>
+      </div>
+      <div class="tm-card" style="--tc:#f59e0b">
+        <div class="tm-label">Avg Days vs Due</div>
+        <div class="tm-val" id="t-avg-due">—</div>
+        <div class="tm-sub">+early / −late</div>
+      </div>
+      <div class="tm-card" style="--tc:#8b5cf6">
+        <div class="tm-label">Tasks Analysed</div>
+        <div class="tm-val" id="t-task-count">—</div>
+        <div class="tm-sub">completed in period</div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="timing-charts">
+      <!-- Avg completion time per member -->
+      <div class="panel">
+        <div class="ph">
+          <div class="ph-title">📊 Avg Days to Complete — by Member</div>
+          <span class="ph-badge" id="t-chart-badge">ranked</span>
+        </div>
+        <div class="chart-wrap chart-h200"><canvas id="timingBarChart"></canvas></div>
+      </div>
+      <!-- On-time rate per member -->
+      <div class="panel">
+        <div class="ph">
+          <div class="ph-title">✅ On-Time Rate — by Member</div>
+          <span class="ph-badge">% tasks before due date</span>
+        </div>
+        <div class="chart-wrap chart-h200"><canvas id="ontimeChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Due date scatter -->
+    <div class="panel section-spacer">
+      <div class="ph">
+        <div class="ph-title">📅 Days Early / Late vs Due Date (all completed tasks)</div>
+        <span class="ph-badge">above 0 = early · below 0 = late</span>
+      </div>
+      <div class="chart-wrap" style="height:180px;"><canvas id="scatterChart"></canvas></div>
+    </div>
+
+    <!-- Cards view -->
+    <div id="t-cards-view">
+      <div style="font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Per Member Breakdown</div>
+      <div class="member-timing-grid" id="timingCards"></div>
+    </div>
+
+    <!-- Table view -->
+    <div id="t-table-view" style="display:none;">
+      <div class="timing-table-wrap">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th onclick="sortTimingTable('tasks')">Tasks ↕</th>
+                <th onclick="sortTimingTable('avgDays')">Avg Days ↕</th>
+                <th onclick="sortTimingTable('fastest')">Fastest ↕</th>
+                <th onclick="sortTimingTable('slowest')">Slowest ↕</th>
+                <th onclick="sortTimingTable('ontime')">On-Time % ↕</th>
+                <th onclick="sortTimingTable('avgDue')">Avg vs Due ↕</th>
+                <th>Rating</th>
+              </tr>
+            </thead>
+            <tbody id="timingTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    </div><!-- /t-content -->
+  </div><!-- /subtab-comp -->
+</div><!-- /tab-timing -->
+
+</div><!-- /tab-timing-unclosed -->
+
+<!-- ════ Recurring tab ════ -->
+<div class="page" id="tab-recurring">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+    <div>
+      <div style="font-size:15px;font-weight:800;color:#F9FAFB">🔄 Recurring Tasks</div>
+      <div style="font-size:11px;color:#6B7280;margin-top:2px">Section = "Recurring Tasks" <b>OR</b> Status field = "Recurring" <b>OR</b> field named "Recurring" is set — excluded from Live Status Tracking</div>
+      <div id="rec-debug" style="font-size:10px;color:#b0bac7;margin-top:2px"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <select id="rec-sort" onchange="renderRecurring()" style="padding:5px 10px;border:1px solid #1E2A3A;border-radius:7px;font-size:12px;font-weight:600;background:#0D1117;color:#F9FAFB;">
+        <option value="count">Sort: Most Tasks</option>
+        <option value="name">Sort: Name</option>
+      </select>
+      <div style="font-size:11px;color:#6B7280">Last load: <span id="rec-last-updated">—</span></div>
+    </div>
+  </div>
+
+  <!-- Summary strip -->
+  <div id="rec-summary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;"></div>
+
+  <!-- Member cards grid -->
+  <div id="rec-member-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;"></div>
+</div>
+
+<!-- ── Task Modal ── -->
+<div class="task-modal-overlay" id="taskModal" style="display:none;" onclick="if(event.target===this)closeModal()">
+  <div class="task-modal">
+    <div class="task-modal-header">
+      <div class="av" id="modal-av" style="background:#2563EB;width:36px;height:36px;font-size:13px;flex-shrink:0"></div>
+      <div>
+        <div style="font-size:14px;font-weight:700;" id="modal-name"></div>
+        <div style="font-size:11px;color:#6B7280;" id="modal-sub"></div>
+      </div>
+      <button class="task-modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="task-modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- ════════════════════ SCRIPT ════════════════════ -->
+<script>
+
+// ── Asana direct API ───────────────────────────────────────────────────────
+let PAT = localStorage.getItem('asana_pat') || '';
+
+function savePat(){
+  const val=(document.getElementById('pat-input').value||'').trim();
+  if(!val){showPatError('Please paste your Personal Access Token');return;}
+  PAT=val;
+  localStorage.setItem('asana_pat',val);
+  document.getElementById('pat-modal').style.display='none';
+  startDashboard();
+}
+function resetPat(){
+  if(!confirm('Disconnect from Asana? You will need to re-enter your token.'))return;
+  localStorage.removeItem('asana_pat');
+  PAT='';
+  location.reload();
+}
+function showPatError(msg){
+  const el=document.getElementById('pat-error');
+  el.textContent=msg;el.style.display='block';
+}
+
+async function asanaGet(params){
+  const qs=Object.entries(params).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+  const r=await fetch('https://app.asana.com/api/1.0/tasks?'+qs,{
+    headers:{Authorization:'Bearer '+PAT,Accept:'application/json'}
+  });
+  if(r.status===401){
+    showPatError('Invalid token — please disconnect and re-enter.');
+    localStorage.removeItem('asana_pat');PAT='';
+    document.getElementById('pat-modal').style.display='flex';
+    throw new Error('Unauthorized');
+  }
+  if(!r.ok){const t=await r.text();throw new Error('Asana '+r.status+': '+t.substring(0,120));}
+  return r.json();
+}
+// ─────────────────────────────────────────────────────────────────────────
+
+const PROJECT_ID='1213816975277804';
+const MEMBERS=['Shreya Pandey','Sakshi Bonde','Mithila Satarkar','Mansi Sewatkar','Pratik Jagtap','Aniket Denge','Suneet Lavhale','Jeet Chaudhari','Ankita Dey','Alisha Prusty','Arpit Shiradkar','Ajinkya Sable','Maithili Deulkar','Diksha Waghchaude','Hardeep Dhanjal','Rohit Pradhan','Nikita Lashkan','Isa Jaiswal','Aditi Gaikwad','Shilpa Gaikwad','Ravina Pawse','Ayushi Abani','Vishal Goswami','Apurva Verma','Manas Patil','Satyajeet Patil','Subhabrata Saha','Anuj Goswami','Devesh Mehare','Yuvraj Aggarwal','Nandini Thakur','Sparsh Neema','Priya Chichiriya','Ronak Arora','Rushikesh Patil','Surbhi Shekhar'];
+const SMES=['Vishal Rajput','Gaurav Motwani','Sarthak Kaul'];
+const ALL_MEMBERS=[...MEMBERS,...SMES];
+const TEAM_SET=new Set(ALL_MEMBERS);
+
+const SEC_COLORS={'New Projects':'#2563EB','Waiting for Core Team':'#f59e0b','Stranded Inventory':'#ef4444','Assigned':'#8b5cf6','In Progress':'#10b981','Waiting for SEM/EPM':'#f97316','Needs Review from SEM/EPM':'#ec4899','Account Health Approval (Waiting)':'#eab308','Account Health Approval':'#eab308','Case Submitted':'#06b6d4','Cases Escalation':'#dc2626','Need to Check':'#a855f7','On Hold':'#6b7280','Team Work - Collaboration Tasks':'#14b8a6','Syndication Issue - On Hold':'#fb923c','Recurring Tasks':'#64748b','Complete':'#22c55e'};
+const AV_COLORS=['#2563EB','#10b981','#f59e0b','#ec4899','#06b6d4','#8b5cf6','#f97316','#ef4444','#14b8a6','#3b82f6'];
+
+// ── Helpers ──
+let allTasks=[], memberView='cards', compChart=null, overdueChart=null, weekChart=null, healthChart=null, brandChart=null, mktChart=null;
+function todayStr(){return new Date().toISOString().slice(0,10);}
+function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+function avColor(name){let h=0;for(const c of name)h=(h*31+c.charCodeAt(0))%AV_COLORS.length;return AV_COLORS[Math.abs(h)];}
+function inits(name){const p=name.trim().split(' ');return(p[0][0]+(p[1]?.[0]||'')).toUpperCase();}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function getSection(t){for(const m of(t.memberships||[])){if(m.project?.gid===PROJECT_ID&&m.section?.name)return m.section.name;}return null;}
+function getCF(t,name){return(t.custom_fields||[]).find(f=>f.name===name)?.display_value||null;}
+function dueClass(due){if(!due)return null;const t=todayStr();if(due<t)return'overdue';if(due===t)return'today';if(due<=addDays(7))return'week';return'future';}
+
+// ── Tab switching ──
+function switchTab(id){
+  // Hide all pages, show the selected one
+  document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='none';});
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  const pg=document.getElementById('tab-'+id);
+  if(pg){pg.classList.add('active');pg.style.display='block';}
+  if(event&&event.target) event.target.classList.add('active');
+  if(id==='timing' && allTasks.length>0 && !window._statusRendered){
+    renderStatusTracking(allTasks);
+    window._statusRendered=true;
+  }
+  if(id==='recurring'){
+    // Always re-render on tab click so refresh works
+    window._recurRendered=false;
+    if(allTasks.length>0){
+      renderRecurring();
+      window._recurRendered=true;
+    } else {
+      document.getElementById('rec-member-cards').innerHTML='<div style="grid-column:1/-1;padding:30px;text-align:center;color:#9ba8b8">Still loading tasks… click this tab again in a moment.</div>';
+    }
+  }
+}
+
+// ── Build member stats ──
+function buildMemberStats(tasks){
+  const stats={};
+  for(const n of ALL_MEMBERS)stats[n]={total:0,overdue:0,today:0,week:0,noDue:0,sections:{}};
+  const t=todayStr(),w=addDays(7);
+  for(const task of tasks){
+    const an=task.assignee?.name;
+    if(!an||!stats[an])continue;
+    const m=stats[an]; m.total++;
+    const due=task.due_on;
+    if(!due)m.noDue++;
+    else if(due<t)m.overdue++;
+    else if(due===t)m.today++;
+    else if(due<=w)m.week++;
+    const sec=getSection(task);
+    if(sec)m.sections[sec]=(m.sections[sec]||0)+1;
+  }
+  return stats;
+}
+
+// ── Overview ──
+function renderOverview(tasks,stats){
+  const t=todayStr(),w=addDays(7);
+  const teamTasks=tasks.filter(tk=>tk.assignee&&TEAM_SET.has(tk.assignee.name));
+  const overdue=teamTasks.filter(tk=>tk.due_on&&tk.due_on<t).length;
+  const today=teamTasks.filter(tk=>tk.due_on===t).length;
+  const week=teamTasks.filter(tk=>tk.due_on&&tk.due_on>=t&&tk.due_on<=w).length;
+  const unassigned=tasks.filter(tk=>!tk.assignee||!TEAM_SET.has(tk.assignee.name)).length;
+  document.getElementById('ov-total').textContent=tasks.length;
+  document.getElementById('ov-overdue').textContent=overdue;
+  document.getElementById('ov-today').textContent=today;
+  document.getElementById('ov-week').textContent=week;
+  document.getElementById('ov-unassigned').textContent=unassigned;
+
+  // Overdue by member chart
+  const ovMembers=ALL_MEMBERS.map(n=>({name:n,ov:stats[n]?.overdue||0})).filter(x=>x.ov>0).sort((a,b)=>b.ov-a.ov).slice(0,14);
+  if(overdueChart)overdueChart.destroy();
+  const ovCtx=document.getElementById('overdueChart').getContext('2d');
+  overdueChart=new Chart(ovCtx,{type:'bar',data:{labels:ovMembers.map(x=>x.name.split(' ')[0]+' '+x.name.split(' ')[1]?.[0]+'.'),datasets:[{data:ovMembers.map(x=>x.ov),backgroundColor:'#ef444488',borderColor:'#ef4444',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#f0f2f5'},ticks:{font:{size:10}}},x:{grid:{display:false},ticks:{font:{size:10},color:'#6b7c93'}}}}});
+
+  // Week daily breakdown
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const today_=new Date();today_.setHours(0,0,0,0);
+  const dayCounts=Array(7).fill(0);
+  for(const tk of tasks){
+    if(!tk.due_on)continue;
+    const d=new Date(tk.due_on+'T00:00:00');
+    const diff=Math.round((d-today_)/86400000);
+    if(diff>=0&&diff<7)dayCounts[diff]++;
+  }
+  const dayLabels=Array.from({length:7},(_,i)=>{const d=new Date(today_);d.setDate(d.getDate()+i);return['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+d.getDate();});
+  if(weekChart)weekChart.destroy();
+  const wCtx=document.getElementById('weekChart').getContext('2d');
+  weekChart=new Chart(wCtx,{type:'bar',data:{labels:dayLabels,datasets:[{data:dayCounts,backgroundColor:dayCounts.map((v,i)=>i===0?'#f59e0b99':'#2563EB55'),borderColor:dayCounts.map((v,i)=>i===0?'#f59e0b':'#2563EB'),borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#f0f2f5'},ticks:{font:{size:10},stepSize:1}},x:{grid:{display:false},ticks:{font:{size:10},color:'#6b7c93'}}}}});
+
+  // Health chart
+  const withDue=tasks.filter(tk=>tk.due_on).length;
+  const overdueCount=overdue;
+  const healthy=tasks.length-overdueCount;
+  if(healthChart)healthChart.destroy();
+  const hCtx=document.getElementById('healthChart').getContext('2d');
+  healthChart=new Chart(hCtx,{type:'doughnut',data:{labels:['On Track','Overdue','No Due Date'],datasets:[{data:[healthy-tasks.length+withDue,overdueCount,tasks.length-withDue],backgroundColor:['#10b98166','#ef444466','#1E2A3A'],borderColor:['#10b981','#ef4444','#d3d9e4'],borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:10,padding:8}}}}});
+  const healthPct=Math.round((healthy/Math.max(tasks.length,1))*100);
+  document.getElementById('health-score').textContent=healthPct+'% healthy';
+
+  // Pipeline
+  const secCounts={};
+  for(const tk of tasks){const s=getSection(tk);if(s)secCounts[s]=(secCounts[s]||0)+1;}
+  const pipe=Object.entries(secCounts).sort((a,b)=>b[1]-a[1]);
+  const maxSec=pipe[0]?.[1]||1;
+  const bottleneckThreshold=Math.max(Math.floor(tasks.length*0.12),5);
+  document.getElementById('bottleneck-label').textContent=`Bottleneck >${bottleneckThreshold} tasks`;
+  document.getElementById('pipelineList').innerHTML=pipe.map(([n,c])=>{
+    const color=SEC_COLORS[n]||'#9ba8b8';
+    const pct=Math.round(c/maxSec*100);
+    const isHot=c>=bottleneckThreshold;
+    return`<div class="pipe-row"><div class="pipe-dot" style="background:${color}"></div><div class="pipe-name" title="${esc(n)}">${esc(n)}</div><div class="pipe-bar-wrap"><div class="pipe-bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="pipe-cnt">${c}</div>${isHot?'<span class="pipe-flag flag-hot">🔥</span>':'<span class="pipe-flag flag-ok">✓</span>'}</div>`;
+  }).join('')||'<div class="empty-state">No section data</div>';
+
+  // Unassigned
+  const unassignedTasks=tasks.filter(tk=>!tk.assignee||!TEAM_SET.has(tk.assignee.name));
+  document.getElementById('unassigned-badge').textContent=unassignedTasks.length;
+  document.getElementById('unassignedList').innerHTML=unassignedTasks.slice(0,20).map(tk=>{
+    const sec=getSection(tk);const due=tk.due_on;const dc=dueClass(due);
+    const dueCls=dc==='overdue'?'due-overdue':dc==='today'?'due-today':'';
+    return`<div style="background:#0D1117;border:1px solid #1E2A3A;border-radius:6px;padding:6px 9px;"><div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(tk.name)}">${esc(tk.name)}</div><div style="display:flex;gap:6px;margin-top:2px;">${sec?`<span style="font-size:10px;color:#6B7280">${esc(sec)}</span>`:''}${due?`<span class="sme-due ${dueCls}" style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;${dueCls?'':'background:#1E2A3A;color:#9CA3AF'}">${due}</span>`:''}</div></div>`;
+  }).join('')||'<div style="color:#9ba8b8;font-size:12px;padding:10px">All tasks have owners 🎉</div>';
+
+  // Escalation queue
+  const escalSections=['Needs Review from SEM/EPM','Cases Escalation','Account Health Approval (Waiting)'];
+  const escalTasks=tasks.filter(tk=>escalSections.includes(getSection(tk)));
+  document.getElementById('escal-badge').textContent=escalTasks.length;
+  document.getElementById('escalList').innerHTML=escalTasks.slice(0,20).map(tk=>{
+    const an=tk.assignee?.name||'Unassigned';const due=tk.due_on;
+    const dc=dueClass(due);const dueCls=dc==='overdue'?'due-overdue':dc==='today'?'due-today':'';
+    return`<div style="background:#1f0a0a;border:1px solid #7F1D1D;border-radius:6px;padding:6px 9px;"><div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(tk.name)}">${esc(tk.name)}</div><div style="display:flex;gap:6px;margin-top:2px;"><span style="font-size:10px;color:#6B7280">${esc(an)}</span>${due?`<span class="sme-due ${dueCls}" style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;${dueCls?'':'background:#1E2A3A;color:#9CA3AF'}">${due}</span>`:''}</div></div>`;
+  }).join('')||'<div style="color:#9ba8b8;font-size:12px;padding:10px">No items in escalation 🎉</div>';
+}
+
+// ── Members tab ──
+function getMemberList(){
+  const sort=document.getElementById('m-sort').value;
+  const filter=document.getElementById('m-filter').value;
+  const q=document.getElementById('m-search').value.toLowerCase().trim();
+  let list=ALL_MEMBERS.map(name=>({name,isSme:SMES.includes(name),...(window._memberStats?.[name]||{total:0,overdue:0,today:0,week:0,noDue:0,sections:{}})}));
+  if(filter==='members')list=list.filter(m=>!m.isSme);
+  if(filter==='smes')list=list.filter(m=>m.isSme);
+  if(filter==='with-tasks')list=list.filter(m=>m.total>0);
+  if(filter==='overdue')list=list.filter(m=>m.overdue>0);
+  if(q)list=list.filter(m=>m.name.toLowerCase().includes(q));
+  if(sort==='name')list.sort((a,b)=>a.name.localeCompare(b.name));
+  if(sort==='total')list.sort((a,b)=>b.total-a.total);
+  if(sort==='overdue')list.sort((a,b)=>b.overdue-a.overdue);
+  if(sort==='week')list.sort((a,b)=>b.week-a.week);
+  return list;
+}
+function segbarHtml(sections){
+  const tot=Object.values(sections).reduce((a,b)=>a+b,0);
+  if(!tot)return'<div style="height:6px;background:#1E2A3A;border-radius:4px"></div>';
+  const segs=Object.entries(sections).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([n,c])=>`<div class="seg" style="flex:${(c/tot*100).toFixed(1)};background:${SEC_COLORS[n]||'#9ba8b8'}" title="${esc(n)}: ${c}"></div>`).join('');
+  return`<div class="segbar">${segs}</div>`;
+}
+function renderMembers(){
+  const list=getMemberList();
+  if(memberView==='cards'){
+    document.getElementById('memberCards').innerHTML=list.length?list.map(m=>{
+      const color=avColor(m.name);
+      const top3=Object.entries(m.sections).sort((a,b)=>b[1]-a[1]).slice(0,3);
+      return`<div class="mc ${m.isSme?'sme':'member'}${m.total===0?' dimmed':''}" onclick="openMemberTasksModal('${esc(m.name)}')" style="cursor:pointer;" title="Click to view all tasks">
+        <div class="mc-head"><div class="av" style="background:${color}">${inits(m.name)}</div><div style="flex:1;min-width:0"><div class="mc-name" title="${esc(m.name)}">${esc(m.name)}</div><span class="role-chip ${m.isSme?'chip-sme':'chip-mem'}">${m.isSme?'SME':'Member'}</span></div><span style="font-size:10px;color:#c0c9d4;margin-left:auto" title="Click to view tasks">↗</span></div>
+        <div class="metrics4">
+          <div class="met met-total"><div class="met-num">${m.total}</div><div class="met-lbl">Total</div></div>
+          <div class="met met-ov"><div class="met-num">${m.overdue}</div><div class="met-lbl">Overdue</div></div>
+          <div class="met met-td"><div class="met-num">${m.today}</div><div class="met-lbl">Today</div></div>
+          <div class="met met-wk"><div class="met-num">${m.week}</div><div class="met-lbl">Week</div></div>
+        </div>
+        <div class="bar-lbl">Section breakdown</div>
+        ${segbarHtml(m.sections)}
+        <div class="top3">${top3.length?top3.map(([n,c])=>`<div class="t3row"><div class="t3dot" style="background:${SEC_COLORS[n]||'#9ba8b8'}"></div><div class="t3name" title="${esc(n)}">${esc(n)}</div><div class="t3cnt">${c}</div></div>`).join(''):'<div style="font-size:10px;color:#c0c9d4;margin-top:4px">No tasks assigned</div>'}</div>
+      </div>`;
+    }).join(''):'<div style="grid-column:1/-1;padding:40px;text-align:center;color:#9ba8b8;font-size:13px">No members match filters</div>';
+  } else {
+    const body=document.getElementById('memberTableBody');
+    body.innerHTML=list.map(m=>{
+      const color=avColor(m.name);
+      const topSec=Object.entries(m.sections).sort((a,b)=>b[1]-a[1])[0];
+      const topHtml=topSec?`<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${SEC_COLORS[topSec[0]]||'#f0f2f5'}22;color:${SEC_COLORS[topSec[0]]||'#6b7c93'};font-weight:600">${esc(topSec[0])} (${topSec[1]})</span>`:'—';
+      return`<tr class="${m.isSme?'trow-sme':'trow-mem'}">
+        <td><div class="tname"><div class="tav" style="background:${color}">${inits(m.name)}</div>${esc(m.name)}${m.isSme?'<span style="font-size:9px;background:#1C1500;color:#F59E0B;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px">SME</span>':''}</div></td>
+        <td><span class="num-tot">${m.total}</span></td>
+        <td><span class="${m.overdue>0?'num-ov':''}">${m.overdue||'—'}</span></td>
+        <td><span class="${m.today>0?'num-td':''}">${m.today||'—'}</span></td>
+        <td><span class="${m.week>0?'num-wk':''}">${m.week||'—'}</span></td>
+        <td>${m.noDue||'—'}</td>
+        <td>${topHtml}</td>
+      </tr>`;
+    }).join('');
+  }
+}
+function setMemberView(v){
+  memberView=v;
+  document.getElementById('vbtn-cards').classList.toggle('active',v==='cards');
+  document.getElementById('vbtn-table').classList.toggle('active',v==='table');
+  document.getElementById('memberCards').style.display=v==='cards'?'grid':'none';
+  document.getElementById('memberTable').style.display=v==='table'?'block':'none';
+  renderMembers();
+}
+function setMSort(col){document.getElementById('m-sort').value=col;renderMembers();}
+
+// ── Completed tab ──
+let lastPeriod=null;
+async function loadCompleted(period){
+  if(lastPeriod===period)return;
+  lastPeriod=period;
+
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('comp-placeholder').style.display='none';
+  document.getElementById('comp-content').style.display='none';
+  document.getElementById('comp-loading').style.display='flex';
+
+  const labels={'day':'Today','week':'This Week','month':'This Month','year':'This Year','all':'All Time'};
+  document.getElementById('comp-note').textContent=`Loading ${labels[period]}…`;
+
+  try {
+    const t=todayStr();
+    const sinceMap={
+      day:t+'T00:00:00.000Z',
+      week:addDays(-7)+'T00:00:00.000Z',
+      month:new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString(),
+      year:new Date(new Date().getFullYear(),0,1).toISOString(),
+      all:'2020-01-01T00:00:00.000Z'
+    };
+    const since=sinceMap[period];
+    const maxPages=period==='all'?12:4;
+
+    let tasks=[],offset=null,page=1;
+    while(page<=maxPages){
+      document.getElementById('comp-load-text').textContent=`Fetching page ${page} of completed tasks… (${tasks.length} so far)`;
+      const params={project:PROJECT_ID,limit:100,opt_fields:'gid,name,completed,completed_at,assignee.name',completed_since:since};
+      if(offset)params.offset=offset;
+      const parsed=await asanaGet(params);
+      const batch=(parsed.data||[]).filter(tk=>tk.completed===true);
+      tasks.push(...batch);
+      const np=parsed.next_page;
+      if(!np||!np.offset)break;
+      offset=np.offset;page++;
+    }
+
+    // Filter to team members only
+    const teamTasks=tasks.filter(tk=>tk.assignee&&TEAM_SET.has(tk.assignee.name));
+    const byCounts={};
+    for(const n of ALL_MEMBERS)byCounts[n]=0;
+    for(const tk of teamTasks){byCounts[tk.assignee.name]=(byCounts[tk.assignee.name]||0)+1;}
+
+    const sorted=Object.entries(byCounts).filter(([,c])=>c>0).sort((a,b)=>b[1]-a[1]);
+    const total=sorted.reduce((a,[,c])=>a+c,0);
+    const activeMembers=sorted.length;
+    const top=sorted[0];
+    const avg=activeMembers?Math.round(total/activeMembers):0;
+
+    document.getElementById('comp-total').textContent=total;
+    document.getElementById('comp-members').textContent=activeMembers;
+    document.getElementById('comp-top').textContent=top?top[0].split(' ')[0]:'—';
+    document.getElementById('comp-top-cnt').textContent=top?top[1]+' tasks':'';
+    document.getElementById('comp-avg').textContent=avg;
+    document.getElementById('comp-note').textContent=`${labels[period]} · ${tasks.length} total fetched`;
+    document.getElementById('comp-table-badge').textContent=activeMembers;
+
+    // Chart
+    const top15=sorted.slice(0,15);
+    if(compChart)compChart.destroy();
+    const cCtx=document.getElementById('compChart').getContext('2d');
+    compChart=new Chart(cCtx,{type:'bar',data:{labels:top15.map(([n])=>n.split(' ')[0]+' '+n.split(' ')[1]?.[0]+'.'),datasets:[{data:top15.map(([,c])=>c),backgroundColor:top15.map(([n])=>avColor(n)+'aa'),borderColor:top15.map(([n])=>avColor(n)),borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#f0f2f5'},ticks:{font:{size:10},stepSize:1}},x:{grid:{display:false},ticks:{font:{size:10},color:'#6b7c93'}}}}});
+
+    // Table
+    document.getElementById('compTableBody').innerHTML=sorted.map(([name,cnt])=>{
+      const color=avColor(name);const isSme=SMES.includes(name);
+      return`<tr><td><div class="tname"><div class="tav" style="background:${color}">${inits(name)}</div>${esc(name)}</div></td><td><span class="num-done">${cnt}</span></td><td><span class="role-chip ${isSme?'chip-sme':'chip-mem'}">${isSme?'SME':'Member'}</span></td></tr>`;
+    }).join('')||'<tr><td colspan="3" style="padding:20px;text-align:center;color:#9ba8b8">No completed tasks found</td></tr>';
+
+    document.getElementById('comp-loading').style.display='none';
+    document.getElementById('comp-content').style.display='block';
+  } catch(err){
+    document.getElementById('comp-load-text').textContent='⚠️ Error: '+err.message;
+  }
+}
+
+// ── Brands tab ──
+function renderBrands(tasks){
+  const brandCounts={},mktCounts={};
+  for(const tk of tasks){
+    const brand=getCF(tk,'Brand - Master List');
+    if(brand)brandCounts[brand]=(brandCounts[brand]||0)+1;
+    const mkt=getCF(tk,'Marketplace');
+    if(mkt)mktCounts[mkt]=(mktCounts[mkt]||0)+1;
+  }
+  const sortedBrands=Object.entries(brandCounts).sort((a,b)=>b[1]-a[1]);
+  const sortedMkts=Object.entries(mktCounts).sort((a,b)=>b[1]-a[1]);
+
+  document.getElementById('br-count').textContent=sortedBrands.length;
+  document.getElementById('mkt-count').textContent=sortedMkts.length;
+
+  // Review queue
+  const reviewTasks=tasks.filter(tk=>['Needs Review from SEM/EPM','Account Health Approval (Waiting)'].includes(getSection(tk)));
+  document.getElementById('review-count').textContent=reviewTasks.length;
+  document.getElementById('sme-queue-badge').textContent=reviewTasks.length;
+
+  // Brand chart (top 10)
+  const top10B=sortedBrands.slice(0,10);
+  if(brandChart)brandChart.destroy();
+  const bCtx=document.getElementById('brandChart').getContext('2d');
+  brandChart=new Chart(bCtx,{type:'bar',data:{labels:top10B.map(([n])=>n.length>16?n.slice(0,16)+'…':n),datasets:[{data:top10B.map(([,c])=>c),backgroundColor:'#2563EB55',borderColor:'#2563EB',borderWidth:1,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'#f0f2f5'},ticks:{font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10},color:'#6b7c93'}}}}});
+
+  // Marketplace chart
+  if(mktChart)mktChart.destroy();
+  const mCtx=document.getElementById('mktChart').getContext('2d');
+  const mktColors=['#2563EB','#10b981','#f59e0b','#ec4899','#06b6d4','#8b5cf6','#f97316'];
+  mktChart=new Chart(mCtx,{type:'doughnut',data:{labels:sortedMkts.map(([n])=>n),datasets:[{data:sortedMkts.map(([,c])=>c),backgroundColor:mktColors,borderWidth:2,borderColor:'#0B0F1A'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:10,padding:7}}}}});
+
+  // Brand list
+  const maxB=sortedBrands[0]?.[1]||1;
+  document.getElementById('brand-list-badge').textContent=sortedBrands.length;
+  document.getElementById('brandList').innerHTML=sortedBrands.slice(0,30).map(([n,c])=>`<div class="brand-row"><div class="brand-name" title="${esc(n)}">${esc(n)}</div><div class="brand-bar-wrap"><div class="brand-bar-fill" style="width:${Math.round(c/maxB*100)}%"></div></div><div class="brand-cnt">${c}</div></div>`).join('')||'<div class="empty-state">No brand data</div>';
+
+  // SME queue
+  document.getElementById('smeQueueList').innerHTML=reviewTasks.slice(0,25).map(tk=>{
+    const an=tk.assignee?.name||'Unassigned';const due=tk.due_on;const dc=dueClass(due);
+    const dueCls=dc==='overdue'?'flag-hot':dc==='today'?'due-today':'';
+    const brand=getCF(tk,'Brand - Master List');
+    return`<div class="sme-task"><div class="sme-task-name" title="${esc(tk.name)}">${esc(tk.name)}</div><div class="sme-meta"><span class="sme-assignee">${esc(an)}</span>${brand?`<span style="font-size:10px;color:#2563EB;font-weight:600">${esc(brand)}</span>`:''}${due?`<span class="sme-due ${dueCls}" style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;${dueCls?'':'background:#1E2A3A;color:#9CA3AF'}">${due}</span>`:''}</div></div>`;
+  }).join('')||'<div class="empty-state">No items in review queue 🎉</div>';
+}
+
+// ── Fetch all tasks ──
+async function fetchAllIncomplete(){
+  let tasks=[],offset=null,page=1,maxPages=6;
+  while(page<=maxPages){
+    const pct=Math.round((page/maxPages)*80);
+    document.getElementById('loadBar').style.width=pct+'%';
+    document.getElementById('loadSub').textContent=`Fetching page ${page}… (${tasks.length} tasks loaded)`;
+    const params={project:PROJECT_ID,limit:100,opt_fields:'gid,name,due_on,completed,modified_at,permalink_url,assignee.name,memberships.project.gid,memberships.section.name,custom_fields.gid,custom_fields.name,custom_fields.display_value'};
+    if(offset)params.offset=offset;
+    let res,parsed;
+    try{
+      parsed=await asanaGet(params);
+    }catch(fetchErr){
+      console.warn('Page',page,'fetch/parse error:',fetchErr.message,res?.content?.[0]?.text?.substring(0,80));
+      break;
+    }
+    const batch=(parsed.data||[]).filter(t=>!t.completed);
+    tasks.push(...batch);
+    const np=parsed.next_page;
+    if(!np||!np.offset)break;
+    offset=np.offset;page++;
+  }
+  // Dedup by GID (pagination boundary safety)
+  const seen=new Set();
+  return tasks.filter(t=>{if(seen.has(t.gid))return false;seen.add(t.gid);return true;});
+}
+
+async function refreshDashboard(){
+  const btn=document.getElementById('refreshBtn');
+  if(btn){btn.disabled=true;btn.textContent='↻ Loading…';}
+  document.getElementById('loader').style.display='flex';
+  document.getElementById('loadBar').style.width='0%';
+  document.getElementById('loadSub').textContent='Refreshing…';
+  await init();
+}
+async function init(){
+  try{
+    document.getElementById('loadSub').textContent='Connecting to Asana…';
+    const tasks=await fetchAllIncomplete();
+    allTasks=tasks;
+    // Exclude recurring tasks from all overview/member/brand tabs
+    const activeTasks=tasks.filter(t=>!isRecurring(t));
+    document.getElementById('loadBar').style.width='90%';
+    document.getElementById('loadSub').textContent='Building dashboard…';
+
+    const stats=buildMemberStats(activeTasks);
+    window._memberStats=stats;
+
+    renderOverview(activeTasks,stats);
+    renderMembers();
+    renderBrands(activeTasks);
+
+    document.getElementById('loadBar').style.width='100%';
+    const _now=new Date();
+    document.getElementById('updatedTag').textContent='Updated '+_now.toLocaleDateString([],{month:'short',day:'numeric'})+' '+_now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+activeTasks.length+' active';
+    document.getElementById('refreshBtn').disabled=false;document.getElementById('refreshBtn').textContent='↻ Refresh';
+    setTimeout(()=>{document.getElementById('loader').style.display='none';},300);
+  }catch(err){
+    document.getElementById('loadSub').textContent='⚠️ Error: '+err.message;
+    console.error(err);
+  }
+}
+
+// ══════════════════════════════════════════
+//  STATUS FIELD CONSTANTS
+// ══════════════════════════════════════════
+const STATUS_FIELD_GID = '1213815728728280';
+const STATUS_COLORS = {
+  'New Project':          '#2563EB',
+  'Assigned':             '#8b5cf6',
+  'In Progress':          '#10b981',
+  'Waiting for SEM/EPM':  '#f97316',
+  'Stranded Inventory':   '#ef4444',
+};
+const STATUS_ORDER = ['New Project','Assigned','In Progress','Waiting for SEM/EPM','Stranded Inventory'];
+
+function getStatus(task){
+  const cf = (task.custom_fields||[]).find(f=>f.gid===STATUS_FIELD_GID || f.name==='Status');
+  return cf?.display_value || null;
+}
+function statusAge(task){
+  if(!task.modified_at) return null;
+  return (Date.now() - new Date(task.modified_at)) / 86400000; // days
+}
+function ageLabel(days){
+  if(days===null) return '—';
+  if(days<1) return Math.round(days*24)+'h';
+  return days.toFixed(1)+'d';
+}
+function ageCls(days, threshold){
+  if(days===null) return '#8b97a8';
+  if(days>=threshold*2) return '#ef4444';
+  if(days>=threshold) return '#f59e0b';
+  return '#10b981';
+}
+
+function setSubTab(id){
+  document.getElementById('subtab-live').style.display = id==='live'?'block':'none';
+  document.getElementById('subtab-comp').style.display = id==='comp'?'block':'none';
+  document.getElementById('stab-live').classList.toggle('active', id==='live');
+  document.getElementById('stab-comp').classList.toggle('active', id==='comp');
+}
+
+window._lastMemberStats={};
+function renderStatusTracking(tasks){
+  const threshold = parseInt(document.getElementById('stuck-threshold').value)||3;
+  const sortBy = document.getElementById('status-sort').value;
+
+  // Only team member tasks — exclude recurring
+  const teamTasks = tasks.filter(t=>t.assignee&&TEAM_SET.has(t.assignee.name)&&!isRecurring(t));
+
+  // ── Team summary row ──
+  const statusCounts = {};
+  for(const s of STATUS_ORDER) statusCounts[s]=0;
+  statusCounts['Unknown']=0;
+  for(const t of teamTasks){
+    const s=getStatus(t);
+    if(s&&statusCounts[s]!==undefined) statusCounts[s]++;
+    else statusCounts['Unknown']++;
+  }
+  const summaryEl = document.getElementById('status-summary-row');
+  summaryEl.innerHTML = STATUS_ORDER.map(s=>`
+    <div style="background:#111827;border-radius:10px;border:1px solid #1E2A3A;padding:11px 13px;box-shadow:0 1px 3px rgba(0,0,0,.3);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${STATUS_COLORS[s]}"></div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6B7280;margin-bottom:3px">${esc(s)}</div>
+      <div style="font-size:26px;font-weight:900;color:${STATUS_COLORS[s]};line-height:1">${statusCounts[s]}</div>
+      <div style="font-size:10px;color:#b0bac7;margin-top:2px">tasks</div>
+    </div>`).join('');
+
+  // ── Per-member breakdown ──
+  const memberStats={};
+  for(const n of ALL_MEMBERS){
+    memberStats[n]={name:n,total:0,byStatus:{},stuckCount:0,maxAge:0};
+    for(const s of STATUS_ORDER) memberStats[n].byStatus[s]=[];
+  }
+  for(const t of teamTasks){
+    const n=t.assignee.name;
+    if(!memberStats[n]) continue;
+    const s=getStatus(t)||'Unknown';
+    const age=statusAge(t);
+    memberStats[n].total++;
+    if(!memberStats[n].byStatus[s]) memberStats[n].byStatus[s]=[];
+    memberStats[n].byStatus[s].push({task:t,age});
+    if(age!==null && age>memberStats[n].maxAge) memberStats[n].maxAge=age;
+    // stuck = in a non-active status for too long, OR in any status for > threshold
+    const isStuck = age!==null && age>=threshold && s!=='In Progress';
+    if(isStuck) memberStats[n].stuckCount++;
+  }
+
+  window._lastMemberStats=memberStats;
+  // Sort
+  let memberList=ALL_MEMBERS.map(n=>memberStats[n]).filter(m=>m.total>0);
+  if(sortBy==='stuck')     memberList.sort((a,b)=>b.stuckCount-a.stuckCount||b.maxAge-a.maxAge);
+  if(sortBy==='inprogress')memberList.sort((a,b)=>(b.byStatus['In Progress']?.length||0)-(a.byStatus['In Progress']?.length||0));
+  if(sortBy==='total')     memberList.sort((a,b)=>b.total-a.total);
+  if(sortBy==='name')      memberList.sort((a,b)=>a.name.localeCompare(b.name));
+
+  // Render member cards
+  document.getElementById('status-member-cards').innerHTML = memberList.map(m=>{
+    const color=avColor(m.name);
+    const isSme=SMES.includes(m.name);
+    const allStatusKeys=[...STATUS_ORDER,...(m.byStatus['Unknown']?.length?['Unknown']:[])];
+    const statusRows=allStatusKeys.filter(s=>m.byStatus[s]?.length>0).map(s=>{
+      const items=m.byStatus[s];
+      const stuckItems=items.filter(x=>x.age!==null&&x.age>=threshold&&s!=='In Progress');
+      const oldestAge=items.reduce((mx,x)=>(x.age||0)>mx?(x.age||0):mx,0);
+      const ac=ageCls(oldestAge,threshold);
+      const dotColor=s==='Unknown'?'#c8d0db':STATUS_COLORS[s]||'#9ba8b8';
+      return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:${dotColor};flex-shrink:0"></div>
+        <div style="font-size:11px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${s==='Unknown'?'#9ba8b8':'inherit'}">${s==='Unknown'?'No Status':esc(s)}</div>
+        <span style="font-size:11px;font-weight:700;color:#F9FAFB">${items.length}</span>
+        ${oldestAge?`<span style="font-size:10px;color:${ac};font-weight:600" title="Oldest task age">${ageLabel(oldestAge)}</span>`:''}
+        ${stuckItems.length?`<span style="font-size:9px;background:#1f0a0a;color:#F87171;padding:1px 5px;border-radius:3px;font-weight:700">🚨${stuckItems.length}</span>`:''}
+      </div>`;
+    }).join('');
+
+    const inprogCount=m.byStatus['In Progress']?.length||0;
+    const stuckTotal=m.stuckCount;
+    const headerColor=stuckTotal>0?'#ef4444':inprogCount>0?'#10b981':'#2563EB';
+
+    return`<div onclick="openStatusModal('${esc(m.name)}',window._lastMemberStats)" style="cursor:pointer;background:#111827;border-radius:11px;border:1px solid ${stuckTotal>0?'#7F1D1D':'#1E2A3A'};padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.3);position:relative;overflow:hidden;transition:all .15s;" title="Click to see task links">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${headerColor}"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div class="av" style="background:${color};width:32px;height:32px;font-size:12px">${inits(m.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</div>
+          <span class="role-chip ${isSme?'chip-sme':'chip-mem'}">${isSme?'SME':'Member'}</span>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:18px;font-weight:900;color:#2563EB;line-height:1">${m.total}</div>
+          <div style="font-size:9px;color:#6B7280">tasks</div>
+        </div>
+      </div>
+      ${statusRows||'<div style="font-size:11px;color:#c0c9d4">No tasks</div>'}
+      ${stuckTotal?`<div style="margin-top:8px;font-size:10px;font-weight:700;color:#dc2626;background:#1f0a0a;padding:3px 8px;border-radius:5px">🚨 ${stuckTotal} task${stuckTotal>1?'s':''} stuck >${threshold}d</div>`:''}
+    </div>`;
+  }).join('')||'<div style="grid-column:1/-1;padding:30px;text-align:center;color:#9ba8b8">No tasks found</div>';
+
+  // ── Stuck tasks list ──
+  const stuckTasks=[];
+  for(const m of memberList){
+    const allStatuses=[...STATUS_ORDER,'Unknown'];
+    for(const s of allStatuses){
+      if(s==='In Progress') continue; // In Progress is active — not stuck
+      for(const {task,age} of (m.byStatus[s]||[])){
+        if(age!==null&&age>=threshold) stuckTasks.push({task,age,status:s,member:m.name});
+      }
+    }
+  }
+  stuckTasks.sort((a,b)=>b.age-a.age);
+  document.getElementById('stuck-badge').textContent=stuckTasks.length;
+  document.getElementById('stuck-list').innerHTML=stuckTasks.slice(0,40).map(({task,age,status,member})=>{
+    const color=STATUS_COLORS[status]||'#9ba8b8';
+    const isVeryStuck=age>=threshold*2;
+    const due=task.due_on;
+    const dc=due&&due<todayStr()?'due-overdue':due===todayStr()?'due-today':'';
+    return`<div style="background:${isVeryStuck?'#1f0a0a':'#1C1500'};border:1px solid ${isVeryStuck?'#7F1D1D':'#78350F'};border-radius:7px;padding:8px 10px;">
+      <div style="font-size:11px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px;">
+        <a href="${taskUrl(task)}" target="_blank" style="flex:1;color:#F9FAFB;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="Open in Asana: ${esc(task.name)}" onmouseover="this.style.color='#2563EB'" onmouseout="this.style.color='#F9FAFB'">${esc(task.name)}</a>
+        <a href="${taskUrl(task)}" target="_blank" style="color:#9ba8b8;font-size:13px;text-decoration:none;flex-shrink:0;" title="Open in Asana">↗</a>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <div class="av" style="background:${avColor(member)};width:16px;height:16px;font-size:7px;flex-shrink:0">${inits(member)}</div>
+        <span style="font-size:10px;color:#9CA3AF">${esc(member)}</span>
+        <span style="font-size:10px;font-weight:700;background:${color}22;color:${color};padding:1px 5px;border-radius:3px">${esc(status)}</span>
+        <span style="font-size:10px;font-weight:800;color:${isVeryStuck?'#dc2626':'#d97706'}">⏱ ${ageLabel(age)}</span>
+        ${due?`<span style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;${dc==='due-overdue'?'background:#1f0a0a;color:#F87171':dc==='due-today'?'background:#1C1500;color:#d97706':'background:#1E2A3A;color:#9CA3AF'}">${due}</span>`:''}
+      </div>
+    </div>`;
+  }).join('')||'<div style="padding:16px;text-align:center;color:#9ba8b8;font-size:12px">No stuck tasks 🎉</div>';
+
+  // ── In Progress list ──
+  const inProgTasks=[];
+  for(const m of memberList){
+    for(const {task,age} of (m.byStatus['In Progress']||[])){
+      inProgTasks.push({task,age,member:m.name});
+    }
+  }
+  inProgTasks.sort((a,b)=>b.age-a.age);
+  document.getElementById('inprog-badge').textContent=inProgTasks.length;
+  document.getElementById('inprog-list').innerHTML=inProgTasks.slice(0,30).map(({task,age,member})=>{
+    const due=task.due_on;
+    const dc=due&&due<todayStr()?'due-overdue':due===todayStr()?'due-today':'';
+    return`<div style="background:#0a1f12;border:1px solid #14532d;border-radius:7px;padding:7px 10px;">
+      <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px" title="${esc(task.name)}">${esc(task.name)}</div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <div class="av" style="background:${avColor(member)};width:16px;height:16px;font-size:7px;flex-shrink:0">${inits(member)}</div>
+        <span style="font-size:10px;color:#9CA3AF">${esc(member)}</span>
+        <span style="font-size:10px;font-weight:700;color:#059669">⏱ ${ageLabel(age)}</span>
+        ${due?`<span style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;${dc==='due-overdue'?'background:#1f0a0a;color:#F87171':dc==='due-today'?'background:#1C1500;color:#d97706':'background:#1E2A3A;color:#9CA3AF'}">${due}</span>`:''}
+      </div>
+    </div>`;
+  }).join('')||'<div style="padding:16px;text-align:center;color:#9ba8b8;font-size:12px">No tasks in progress</div>';
+
+  document.getElementById('status-last-updated').textContent='Loaded: '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+}
+
+
+// ── Recurring helpers ──
+// A task is recurring if:
+//   (a) its Status custom field value is "Recurring", OR
+//   (b) it belongs to a section whose name is "Recurring Task"
+function isRecurring(task){
+  const statusVal=(getStatus(task)||'').trim();
+  if(statusVal==='Recurring') return true;
+  const secs=(task.memberships||[])
+    .filter(m=>m.project?.gid===PROJECT_ID)
+    .map(m=>(m.section?.name||'').trim());
+  if(secs.some(s=>s==='Recurring Task'||s==='Recurring Tasks')) return true;
+  return false;
+}
+function renderRecurring(){
+  try{
+  window.perMemberRecurring={};
+  const tasks=allTasks.filter(t=>isRecurring(t));
+  const sortBy=document.getElementById('rec-sort')?.value||'count';
+  // Debug strip
+  const dbgEl=document.getElementById('rec-debug');
+  if(dbgEl) dbgEl.textContent=`Scanned ${allTasks.length} tasks · ${tasks.length} recurring found`;
+
+  // Summary strip
+  const total=tasks.length;
+  const withDue=tasks.filter(t=>t.due_on).length;
+  const overdue=tasks.filter(t=>t.due_on&&t.due_on<todayStr()).length;
+  document.getElementById('rec-summary').innerHTML=`
+    <div style="background:#0D1117;border-radius:9px;border:1px solid #1E2A3A;padding:10px 14px;display:flex;flex-direction:column;gap:2px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6B7280">Total Recurring</div>
+      <div style="font-size:28px;font-weight:900;color:#2563EB;line-height:1">${total}</div>
+    </div>
+    <div style="background:#0D1117;border-radius:9px;border:1px solid #1E2A3A;padding:10px 14px;display:flex;flex-direction:column;gap:2px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6B7280">With Due Date</div>
+      <div style="font-size:28px;font-weight:900;color:#8b5cf6;line-height:1">${withDue}</div>
+    </div>
+    <div style="background:#0D1117;border-radius:9px;border:1px solid ${overdue>0?'#7F1D1D':'#1E2A3A'};padding:10px 14px;display:flex;flex-direction:column;gap:2px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6B7280">Overdue</div>
+      <div style="font-size:28px;font-weight:900;color:${overdue>0?'#ef4444':'#10b981'};line-height:1">${overdue}</div>
+    </div>
+    <div style="background:#0D1117;border-radius:9px;border:1px solid #1E2A3A;padding:10px 14px;display:flex;flex-direction:column;gap:2px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6B7280">Members w/ Recurring</div>
+      <div style="font-size:28px;font-weight:900;color:#f97316;line-height:1">${new Set(tasks.filter(t=>t.assignee).map(t=>t.assignee.name)).size}</div>
+    </div>
+  `;
+
+  // Per-member breakdown
+  const perMember={};
+  for(const n of ALL_MEMBERS) perMember[n]={name:n,tasks:[]};
+  for(const t of tasks){
+    const n=t.assignee?.name;
+    if(n&&perMember[n]) perMember[n].tasks.push(t);
+  }
+
+  let memberList=Object.values(perMember).filter(m=>m.tasks.length>0);
+  if(sortBy==='count') memberList.sort((a,b)=>b.tasks.length-a.tasks.length);
+  if(sortBy==='name')  memberList.sort((a,b)=>a.name.localeCompare(b.name));
+
+  document.getElementById('rec-member-cards').innerHTML = memberList.map(m=>{
+    const color=avColor(m.name);
+    const isSme=SMES.includes(m.name);
+    const overdueCount=m.tasks.filter(t=>t.due_on&&t.due_on<todayStr()).length;
+    const todayCount=m.tasks.filter(t=>t.due_on&&t.due_on===todayStr()).length;
+    const noDue=m.tasks.filter(t=>!t.due_on).length;
+
+    // Group by section
+    const bySection={};
+    for(const t of m.tasks){
+      const sec=(t.memberships||[]).map(ms=>ms.section?.name||'').filter(Boolean).join(', ')||'No Section';
+      if(!bySection[sec]) bySection[sec]=[];
+      bySection[sec].push(t);
+    }
+    const sectionRows=Object.entries(bySection).map(([sec,ts])=>`
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">
+        <div style="width:6px;height:6px;border-radius:50%;background:#8b5cf6;flex-shrink:0"></div>
+        <div style="font-size:10px;color:#9CA3AF;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(sec)}</div>
+        <span style="font-size:10px;font-weight:700;color:#F9FAFB">${ts.length}</span>
+      </div>`).join('');
+
+    return`<div onclick="openRecurringModal('${esc(m.name)}',perMemberRecurring)" style="cursor:pointer;background:#111827;border-radius:11px;border:1px solid ${overdueCount>0?'#7F1D1D':'#1E2A3A'};padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.3);position:relative;overflow:hidden;transition:all .15s;" title="Click to see task links">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${overdueCount>0?'#ef4444':'#8b5cf6'}"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div class="av" style="background:${color};width:32px;height:32px;font-size:12px">${inits(m.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</div>
+          <span class="role-chip ${isSme?'chip-sme':'chip-mem'}">${isSme?'SME':'Member'}</span>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:18px;font-weight:900;color:#8b5cf6;line-height:1">${m.tasks.length}</div>
+          <div style="font-size:9px;color:#6B7280">tasks</div>
+        </div>
+      </div>
+      ${sectionRows}
+      <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">
+        ${overdueCount?`<span style="font-size:9px;font-weight:700;background:#1f0a0a;color:#F87171;padding:2px 6px;border-radius:4px">🔴 ${overdueCount} overdue</span>`:''}
+        ${todayCount?`<span style="font-size:9px;font-weight:700;background:#1C1500;color:#d97706;padding:2px 6px;border-radius:4px">📅 ${todayCount} due today</span>`:''}
+        ${noDue?`<span style="font-size:9px;font-weight:600;background:#1E2A3A;color:#6B7280;padding:2px 6px;border-radius:4px">${noDue} no due</span>`:''}
+      </div>
+    </div>`;
+  }).join('')||'<div style="grid-column:1/-1;padding:30px;text-align:center;color:#9ba8b8">No recurring tasks found for team members</div>';
+
+  // Store for modal
+  window.perMemberRecurring=perMember;
+  document.getElementById('rec-last-updated').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  }catch(err){
+    const dbgEl=document.getElementById('rec-debug');
+    if(dbgEl) dbgEl.innerHTML='<span style="color:#ef4444;font-weight:700">⚠️ Render error: '+err.message+'</span>';
+    const cards=document.getElementById('rec-member-cards');
+    if(cards) cards.innerHTML='<div style="grid-column:1/-1;padding:20px;color:#ef4444;font-size:12px">Error loading recurring tasks: '+err.message+'</div>';
+    console.error('renderRecurring error:',err);
+  }
+}
+
+function openRecurringModal(memberName, perMember){
+  const m=perMember[memberName];
+  if(!m||!m.tasks.length) return;
+  const color=avColor(memberName);
+  const isSme=SMES.includes(memberName);
+  document.getElementById('modal-av').textContent=inits(memberName);
+  document.getElementById('modal-av').style.background=color;
+  document.getElementById('modal-name').textContent=memberName;
+  document.getElementById('modal-sub').textContent=`${m.tasks.length} recurring task${m.tasks.length!==1?'s':''} · ${isSme?'SME':'Member'}`;
+
+  // Group by section
+  const bySection={};
+  for(const t of m.tasks){
+    const sec=(t.memberships||[]).map(ms=>ms.section?.name||'').filter(Boolean).join(', ')||'No Section';
+    if(!bySection[sec]) bySection[sec]=[];
+    bySection[sec].push(t);
+  }
+
+  let html='';
+  for(const [sec,tasks2] of Object.entries(bySection)){
+    const overdueInSec=tasks2.filter(t=>t.due_on&&t.due_on<todayStr()).length;
+    html+=`<div class="task-modal-section">
+      <div class="task-modal-section-title">
+        <div style="width:9px;height:9px;border-radius:50%;background:#8b5cf6"></div>
+        <span style="color:#8b5cf6">${esc(sec)}</span>
+        <span style="color:#6B7280;font-weight:400">(${tasks2.length})</span>
+        ${overdueInSec?`<span style="font-size:9px;background:#1f0a0a;color:#F87171;padding:1px 5px;border-radius:3px;font-weight:700">🔴 ${overdueInSec} overdue</span>`:''}
+      </div>`;
+    const sorted=tasks2.sort((a,b)=>{
+      if(a.due_on&&b.due_on) return a.due_on.localeCompare(b.due_on);
+      if(a.due_on) return -1;
+      if(b.due_on) return 1;
+      return 0;
+    });
+    for(const task of sorted){
+      const due=task.due_on;
+      const isOver=due&&due<todayStr();
+      const isToday=due&&due===todayStr();
+      const dueCls=isOver?'background:#1f0a0a;color:#F87171':isToday?'background:#1C1500;color:#d97706':'background:#1E2A3A;color:#9CA3AF';
+      html+=`<div class="task-link-row" style="${isOver?'border-color:#7F1D1D;background:#1f0a0a;':''}">
+        <div style="flex:1;min-width:0;">
+          <a href="${taskUrl(task)}" target="_blank" title="Open in Asana">${esc(task.name)}</a>
+          <div class="task-link-meta">
+            ${due?`<span style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;${dueCls}">${isOver?'⚠️ Overdue: ':''}${due}</span>`:'<span style="font-size:10px;color:#c0c9d4">No due date</span>'}
+            ${isOver?'<span style="font-size:9px;background:#1f0a0a;color:#F87171;padding:1px 5px;border-radius:3px;font-weight:700">Overdue</span>':''}
+          </div>
+        </div>
+        <a href="${taskUrl(task)}" target="_blank" class="task-link-icon" title="Open in Asana">↗</a>
+      </div>`;
+    }
+    html+=`</div>`;
+  }
+
+  document.getElementById('modal-body').innerHTML=html||'<div style="padding:20px;text-align:center;color:#9ba8b8">No recurring tasks</div>';
+  document.getElementById('taskModal').style.display='flex';
+  document.body.style.overflow='hidden';
+}
+
+// ── Members tab modal ──
+function openMemberTasksModal(memberName){
+  const memberTasks = allTasks.filter(t=>t.assignee?.name===memberName && !t.completed && !isRecurring(t));
+  const color = avColor(memberName);
+  const isSme = SMES.includes(memberName);
+  document.getElementById('modal-av').textContent = inits(memberName);
+  document.getElementById('modal-av').style.background = color;
+  document.getElementById('modal-name').textContent = memberName;
+  document.getElementById('modal-sub').textContent = `${memberTasks.length} open task${memberTasks.length!==1?'s':''} · ${isSme?'SME':'Member'}`;
+
+  const today = todayStr();
+  const week  = addDays(7);
+  const groups = [
+    { label:'🔴 Overdue',     color:'#ef4444', tasks: memberTasks.filter(t=>t.due_on&&t.due_on<today) },
+    { label:'📅 Due Today',   color:'#f97316', tasks: memberTasks.filter(t=>t.due_on&&t.due_on===today) },
+    { label:'📆 This Week',   color:'#f59e0b', tasks: memberTasks.filter(t=>t.due_on&&t.due_on>today&&t.due_on<=week) },
+    { label:'🗓 Future',      color:'#2563EB', tasks: memberTasks.filter(t=>t.due_on&&t.due_on>week) },
+    { label:'— No Due Date',  color:'#9ba8b8', tasks: memberTasks.filter(t=>!t.due_on) },
+  ];
+
+  let html = '';
+  for(const g of groups){
+    if(!g.tasks.length) continue;
+    html += `<div class="task-modal-section">
+      <div class="task-modal-section-title">
+        <span style="color:${g.color}">${g.label}</span>
+        <span style="color:#6B7280;font-weight:400">(${g.tasks.length})</span>
+      </div>`;
+    for(const task of g.tasks){
+      const sec = getSection(task);
+      const due = task.due_on;
+      const isOver = due && due < today;
+      const dueCls = isOver?'background:#1f0a0a;color:#F87171':due===today?'background:#1C1500;color:#d97706':'background:#1E2A3A;color:#9CA3AF';
+      html += `<div class="task-link-row" style="${isOver?'border-color:#7F1D1D;background:#1f0a0a;':''}">
+        <div style="flex:1;min-width:0;">
+          <a href="${taskUrl(task)}" target="_blank" title="Open in Asana">${esc(task.name)}</a>
+          <div class="task-link-meta">
+            ${sec?`<span style="font-size:10px;color:#6B7280;background:#1E2A3A;padding:1px 5px;border-radius:3px">${esc(sec)}</span>`:''}
+            ${due?`<span style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;${dueCls}">${due}</span>`:''}
+          </div>
+        </div>
+        <a href="${taskUrl(task)}" target="_blank" class="task-link-icon" title="Open in Asana">↗</a>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  document.getElementById('modal-body').innerHTML = html || '<div style="color:#9ba8b8;padding:20px;text-align:center">No open tasks</div>';
+  document.getElementById('taskModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+// ── Modal ──
+function taskUrl(task){
+  return task.permalink_url || `https://app.asana.com/0/${PROJECT_ID}/${task.gid}`;
+}
+
+function openStatModal(type){
+  const todaySt=todayStr();  // UTC-based, same as stat card — fixes timezone mismatch
+  const weekSt=addDays(7);
+  const active=(allTasks||[]).filter(t=>!isRecurring(t)&&!t.completed);
+  let filtered,title,subtitle,color;
+  if(type==='overdue'){
+    filtered=active.filter(t=>t.due_on&&t.due_on<todaySt&&t.assignee&&TEAM_SET.has(t.assignee.name));
+    filtered.sort((a,b)=>a.due_on<b.due_on?-1:a.due_on>b.due_on?1:0);
+    title='Overdue Tasks';subtitle=filtered.length+' tasks past due date';color='#ef4444';
+  }else if(type==='today'){
+    filtered=active.filter(t=>t.due_on===todaySt);
+    title='Due Today';subtitle=filtered.length+' tasks due today';color='#f59e0b';
+  }else if(type==='week'){
+    filtered=active.filter(t=>t.due_on&&t.due_on>=todaySt&&t.due_on<=weekSt);
+    title='Due This Week';subtitle=filtered.length+' tasks due this week';color='#10b981';
+  }else if(type==='unassigned'){
+    filtered=active.filter(t=>!t.assignee);
+    title='Unassigned Tasks';subtitle=filtered.length+' tasks without owner';color='#8b5cf6';
+  }else{
+    filtered=active;
+    title='All Active Tasks';subtitle=filtered.length+' total active tasks';color='#2563EB';
+  }
+  let bodyHtml='';
+  if(type==='overdue'){
+    // Flat list sorted by due_on ascending (oldest = most overdue first)
+    const todayD=new Date(todaySt+'T00:00:00');
+    for(const t of filtered){
+      const dueD=new Date(t.due_on+'T00:00:00');
+      const daysOverdue=Math.round((todayD-dueD)/(1000*60*60*24));
+      const dueLabel=dueD.toLocaleDateString([],{month:'short',day:'numeric'});
+      const an=t.assignee?.name||'';
+      const av=an.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+      const c=avColor(an);
+      bodyHtml+=`<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-bottom:1px solid #1E2A3A;border-radius:4px;cursor:pointer" onmouseover="this.style.background='#131f35'" onmouseout="this.style.background=''">
+        <div style="width:24px;height:24px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:white;flex-shrink:0">${av}</div>
+        <a href="${taskUrl(t)}" target="_blank" style="flex:1;font-size:12px;color:#F9FAFB;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(t.name)}">${esc(t.name.length>55?t.name.slice(0,55)+'…':t.name)}</a>
+        <span style="font-size:10px;color:#9CA3AF;white-space:nowrap;flex-shrink:0">${esc(an.split(' ')[0])}</span>
+        <span style="font-size:10px;font-weight:700;color:#ef4444;white-space:nowrap;flex-shrink:0;background:#1f0a0a;padding:1px 6px;border-radius:3px">${dueLabel} · ${daysOverdue}d</span>
+      </div>`;
+    }
+  }else if(type==='unassigned'){
+    const bySec={};
+    for(const t of filtered){const s=getSection(t)||'No Section';if(!bySec[s])bySec[s]=[];bySec[s].push(t);}
+    const secs=Object.entries(bySec).sort((a,b)=>b[1].length-a[1].length);
+    for(const[sec,tasks]of secs){
+      bodyHtml+=`<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;padding:4px 0;border-bottom:1px solid #1E2A3A;margin-bottom:6px">${esc(sec)} · ${tasks.length}</div>`;
+      for(const t of tasks){bodyHtml+=`<a href="${taskUrl(t)}" target="_blank" style="display:block;padding:5px 2px;font-size:12px;color:#F9FAFB;text-decoration:none;border-bottom:1px solid #1E2A3A" onmouseover="this.style.background='#131f35'" onmouseout="this.style.background=''">${esc(t.name.length>70?t.name.slice(0,70)+'…':t.name)}</a>`;}
+      bodyHtml+='</div>';
+    }
+  }else{
+    const byMember={};
+    for(const t of filtered){const n=(t.assignee?.name)||'Unassigned';if(!byMember[n])byMember[n]=[];byMember[n].push(t);}
+    const members=Object.entries(byMember).sort((a,b)=>b[1].length-a[1].length);
+    for(const[name,tasks]of members){
+      const av=name.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+      const c=avColor(name);
+      bodyHtml+=`<div style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="width:26px;height:26px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0">${av}</div><span style="font-size:13px;font-weight:600">${esc(name)}</span><span style="font-size:11px;color:#6B7280;margin-left:auto">${tasks.length} task${tasks.length!==1?'s':''}</span></div>`;
+      for(const t of tasks){
+        const overdue=t.due_on&&t.due_on<todaySt;
+        const dueLabel=t.due_on?new Date(t.due_on+'T00:00:00').toLocaleDateString([],{month:'short',day:'numeric'}):'';
+        bodyHtml+=`<a href="${taskUrl(t)}" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:5px 6px;font-size:12px;color:#F9FAFB;text-decoration:none;border-bottom:1px solid #1E2A3A;border-radius:3px" onmouseover="this.style.background='#131f35'" onmouseout="this.style.background=''"><span>${esc(t.name.length>60?t.name.slice(0,60)+'…':t.name)}</span><span style="font-size:10px;color:${overdue?'#ef4444':'#6B7280'};white-space:nowrap;margin-left:8px">${dueLabel}</span></a>`;
+      }
+      bodyHtml+='</div>';
+    }
+  }
+  const icoMap={overdue:'🔴',today:'🟡',week:'🟢',unassigned:'🔵',all:'📋'};
+  const av=document.getElementById('modal-av');
+  av.textContent=icoMap[type]||'📋';av.style.background='transparent';av.style.fontSize='22px';
+  document.getElementById('modal-name').textContent=title;
+  document.getElementById('modal-sub').textContent=subtitle;
+  document.getElementById('modal-body').innerHTML=bodyHtml||'<div style="padding:30px;text-align:center;color:#6B7280">No tasks found</div>';
+  const overlay=document.getElementById('taskModal');
+  overlay.style.display='flex';document.body.style.overflow='hidden';
+}
+function closeModal(){
+  document.getElementById('taskModal').style.display='none';
+  document.body.style.overflow='';
+}
+function openStatusModal(memberName, memberStats){
+  const m = memberStats[memberName];
+  if(!m) return;
+  const color = avColor(memberName);
+  const isSme = SMES.includes(memberName);
+  document.getElementById('modal-av').textContent = inits(memberName);
+  document.getElementById('modal-av').style.background = color;
+  document.getElementById('modal-name').textContent = memberName;
+  document.getElementById('modal-sub').textContent = `${m.total} task${m.total!==1?'s':''} · ${isSme?'SME':'Member'}`;
+
+  const threshold = parseInt(document.getElementById('stuck-threshold').value)||3;
+  // Render ALL status groups (known + unknown + any extra like Recurring)
+  const allModalKeys=[...STATUS_ORDER,...Object.keys(m.byStatus).filter(s=>!STATUS_ORDER.includes(s))];
+  let html = '';
+  for(const s of allModalKeys){
+    const items = (m.byStatus[s]||[]).sort((a,b)=>(b.age||0)-(a.age||0));
+    if(!items.length) continue;
+    const color2 = STATUS_COLORS[s]||'#9ba8b8';
+    const sLabel=s==='Unknown'?'⚪ No Status':esc(s);
+    const sNote=s.toLowerCase().includes('recurring')?'<span style="font-size:9px;background:#ede9fe;color:#7c3aed;padding:1px 5px;border-radius:3px;font-weight:700">🔄 Recurring</span>':'';
+    html += `<div class="task-modal-section">
+      <div class="task-modal-section-title">
+        <div style="width:9px;height:9px;border-radius:50%;background:${color2}"></div>
+        <span style="color:${color2}">${sLabel}</span>
+        <span style="color:#6B7280;font-weight:400">(${items.length})</span>
+        ${sNote}
+      </div>`;
+    for(const {task, age} of items){
+      const due = task.due_on;
+      const dc = dueClass(due);
+      const dueCls = dc==='overdue'?'background:#1f0a0a;color:#F87171':dc==='today'?'background:#1C1500;color:#d97706':'background:#1E2A3A;color:#9CA3AF';
+      const isStuck = age!==null && age>=threshold && s!=='In Progress';
+      html += `<div class="task-link-row" style="${isStuck?'border-color:#7F1D1D;background:#1f0a0a;':''}">
+        <div style="flex:1;min-width:0;">
+          <a href="${taskUrl(task)}" target="_blank" title="Open in Asana">${esc(task.name)}</a>
+          <div class="task-link-meta">
+            ${age!==null?`<span style="font-size:10px;font-weight:700;color:${ageCls(age,threshold)}">⏱ ${ageLabel(age)}</span>`:''}
+            ${due?`<span style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;${dueCls}">${due}</span>`:''}
+            ${isStuck?'<span style="font-size:9px;background:#1f0a0a;color:#F87171;padding:1px 5px;border-radius:3px;font-weight:700">🚨 Stuck</span>':''}
+          </div>
+        </div>
+        <a href="${taskUrl(task)}" target="_blank" class="task-link-icon" title="Open in Asana">↗</a>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Unknown/extra statuses now handled by allModalKeys loop above
+
+  document.getElementById('modal-body').innerHTML = html || '<div style="color:#9ba8b8;padding:20px;text-align:center">No tasks</div>';
+  document.getElementById('taskModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function openCompletionModal(memberName, taskRows){
+  const tasks = taskRows.filter(r=>r.assignee===memberName);
+  if(!tasks.length) return;
+  const color = avColor(memberName);
+  document.getElementById('modal-av').textContent = inits(memberName);
+  document.getElementById('modal-av').style.background = color;
+  document.getElementById('modal-name').textContent = memberName;
+  document.getElementById('modal-sub').textContent = `${tasks.length} completed task${tasks.length!==1?'s':''}`;
+
+  const early = tasks.filter(t=>t.daysVsDue!==null&&t.daysVsDue>0).sort((a,b)=>b.daysVsDue-a.daysVsDue);
+  const ontime = tasks.filter(t=>t.daysVsDue===0);
+  const late = tasks.filter(t=>t.daysVsDue!==null&&t.daysVsDue<0).sort((a,b)=>a.daysVsDue-b.daysVsDue);
+  const nodue = tasks.filter(t=>t.daysVsDue===null);
+
+  function taskRows2Html(arr, color2, icon){
+    return arr.map(r=>`<div class="task-link-row">
+      <div style="flex:1;min-width:0;">
+        <a href="${r.permalink_url||`https://app.asana.com/0/${PROJECT_ID}/${r.gid}`}" target="_blank">${esc(r.name)}</a>
+        <div class="task-link-meta">
+          <span style="font-size:10px;color:#9CA3AF">⏱ ${r.daysToComplete.toFixed(1)}d to complete</span>
+          ${r.daysVsDue!==null?`<span style="font-size:10px;font-weight:700;color:${color2}">${icon} ${Math.abs(r.daysVsDue)}d ${r.daysVsDue>0?'early':'late'}</span>`:''}
+          ${r.dueOn?`<span style="font-size:10px;color:#6B7280">due ${r.dueOn}</span>`:''}
+        </div>
+      </div>
+      <a href="${r.permalink_url||`https://app.asana.com/0/${PROJECT_ID}/${r.gid}`}" target="_blank" class="task-link-icon">↗</a>
+    </div>`).join('');
+  }
+
+  let html = '';
+  if(early.length)  html += `<div class="task-modal-section"><div class="task-modal-section-title"><span style="color:#10b981">✅ Early (${early.length})</span></div>${taskRows2Html(early,'#10b981','⬆')}</div>`;
+  if(ontime.length) html += `<div class="task-modal-section"><div class="task-modal-section-title"><span style="color:#2563EB">🎯 On-time (${ontime.length})</span></div>${taskRows2Html(ontime,'#2563EB','✓')}</div>`;
+  if(late.length)   html += `<div class="task-modal-section"><div class="task-modal-section-title"><span style="color:#ef4444">🔴 Late (${late.length})</span></div>${taskRows2Html(late,'#ef4444','⬇')}</div>`;
+  if(nodue.length)  html += `<div class="task-modal-section"><div class="task-modal-section-title"><span style="color:#6B7280">— No Due Date (${nodue.length})</span></div>${taskRows2Html(nodue,'#8b97a8','')}</div>`;
+
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('taskModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function startDashboard(){
+  init();
+  setInterval(()=>{
+    window._statusRendered=false;
+    window._recurRendered=false;
+    init();
+  },5*60*1000);
+}
+// Show PAT prompt or load dashboard
+if(PAT){ startDashboard(); }
+else { document.getElementById('pat-modal').style.display='flex'; }
+
+// ══════════════════════════════════════════
+//  TIMING TAB — COMPLETION ANALYSIS
+// ══════════════════════════════════════════
+let timingView='cards', lastTimingPeriod=null;
+let timingBarChart=null, ontimeChart=null, scatterChart=null;
+let timingMemberData=[], timingTaskRows=[];
+
+function perfRating(onTimePct, avgDays){
+  if(onTimePct===null) return {label:'No Due Data',cls:'perf-good'};
+  if(onTimePct>=90 && avgDays<=5)  return {label:'⭐ Excellent',cls:'perf-great'};
+  if(onTimePct>=75 || avgDays<=7)  return {label:'✅ Good',cls:'perf-good'};
+  if(onTimePct>=50 || avgDays<=14) return {label:'⚠️ Needs Attention',cls:'perf-warn'};
+  return {label:'🚨 At Risk',cls:'perf-risk'};
+}
+
+function setTimingView(v){
+  timingView=v;
+  document.getElementById('tv-cards').classList.toggle('active',v==='cards');
+  document.getElementById('tv-table').classList.toggle('active',v==='table');
+  document.getElementById('t-cards-view').style.display=v==='cards'?'block':'none';
+  document.getElementById('t-table-view').style.display=v==='table'?'block':'none';
+}
+
+function sortTimingTable(col){
+  const dir = timingMemberData._lastSort===col ? -1 : 1;
+  timingMemberData._lastSort = col;
+  const arr=[...timingMemberData].filter(m=>!m._meta);
+  arr.sort((a,b)=>{
+    const av=a[col]??-Infinity, bv=b[col]??-Infinity;
+    return (av-bv)*dir;
+  });
+  renderTimingTable(arr);
+}
+function renderTimingCards(members){
+  document.getElementById('timingCards').innerHTML=members.map(m=>{
+    const color=avColor(m.name);
+    const top3=Object.entries(m.sections||{}).sort((a,b)=>b[1]-a[1]).slice(0,3);
+    const rating=perfRating(m.ontime_pct,m.avgDays);
+    const avgDueStr=m.avgDue===null?'N/A':(m.avgDue>0?'+'+m.avgDue.toFixed(1):m.avgDue.toFixed(1))+'d';
+    const avgDueColor=m.avgDue===null?'#8b97a8':m.avgDue>0?'#10b981':'#ef4444';
+    const totalForBar=(m.early||0)+(m.ontime||0)+(m.late||0)+(m.nodue||0);
+    const earlyPct=totalForBar?Math.round((m.early||0)/totalForBar*100):0;
+    const ontimePct=totalForBar?Math.round((m.ontime||0)/totalForBar*100):0;
+    const latePct=totalForBar?Math.round((m.late||0)/totalForBar*100):0;
+    const nodPct=totalForBar?Math.round((m.nodue||0)/totalForBar*100):0;
+    return `<div class="mtc" onclick="openCompletionModal('${esc(m.name)}',timingTaskRows)" style="cursor:pointer;" title="Click to see task links">
+      <div class="mtc-head">
+        <div class="av" style="background:${color}">${inits(m.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="mc-name" title="${esc(m.name)}">${esc(m.name)}</div>
+          <span class="role-chip ${SMES.includes(m.name)?'chip-sme':'chip-mem'}">${SMES.includes(m.name)?'SME':'Member'}</span>
+        </div>
+        <span class="perf-badge ${rating.cls}">${rating.label}</span>
+      </div>
+      <div class="mtc-stats">
+        <div class="mtc-stat"><div class="mtc-stat-val" style="color:#2563EB">${m.tasks}</div><div class="mtc-stat-lbl">Tasks done</div></div>
+        <div class="mtc-stat"><div class="mtc-stat-val" style="color:#8b5cf6">${m.avgDays!==null?m.avgDays.toFixed(1)+'d':'—'}</div><div class="mtc-stat-lbl">Avg days</div></div>
+        <div class="mtc-stat"><div class="mtc-stat-val" style="color:${m.ontime_pct!==null?(m.ontime_pct>=75?'#10b981':m.ontime_pct>=50?'#f59e0b':'#ef4444'):'#8b97a8'}">${m.ontime_pct!==null?m.ontime_pct+'%':'—'}</div><div class="mtc-stat-lbl">On-time</div></div>
+        <div class="mtc-stat"><div class="mtc-stat-val" style="color:${avgDueColor}">${avgDueStr}</div><div class="mtc-stat-lbl">Vs due</div></div>
+      </div>
+      <div class="bar-lbl">Outcomes</div>
+      <div class="otb">
+        ${m.early?`<div class="otb-early" style="flex:${earlyPct}" title="Early: ${m.early}"></div>`:''}
+        ${m.ontime?`<div class="otb-ontime" style="flex:${ontimePct}" title="On-time: ${m.ontime}"></div>`:''}
+        ${m.late?`<div class="otb-late" style="flex:${latePct}" title="Late: ${m.late}"></div>`:''}
+        ${m.nodue?`<div class="otb-nodue" style="flex:${nodPct}" title="No date: ${m.nodue}"></div>`:''}
+        ${!totalForBar?`<div style="flex:1;background:#1E2A3A;border-radius:4px;height:7px"></div>`:''}
+      </div>
+      <div class="otb-legend" style="margin-top:4px;">
+        ${m.early?`<div class="otb-leg-item"><div class="otb-leg-dot" style="background:#10b981"></div>${m.early} early</div>`:''}
+        ${m.ontime?`<div class="otb-leg-item"><div class="otb-leg-dot" style="background:#2563EB"></div>${m.ontime} on-time</div>`:''}
+        ${m.late?`<div class="otb-leg-item"><div class="otb-leg-dot" style="background:#ef4444"></div>${m.late} late</div>`:''}
+        ${m.nodue?`<div class="otb-leg-item"><div class="otb-leg-dot" style="background:#1E2A3A"></div>${m.nodue} no date</div>`:''}
+      </div>
+      <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;">
+        ${m.fastest!==null?`<div style="font-size:10px;color:#10b981;font-weight:600">⚡ Fastest: ${m.fastest.toFixed(1)}d</div>`:''}
+        ${m.slowest!==null?`<div style="font-size:10px;color:#ef4444;font-weight:600">🐢 Slowest: ${m.slowest.toFixed(1)}d</div>`:''}
+      </div>
+    </div>`;
+  }).join('')||'<div style="grid-column:1/-1;padding:30px;text-align:center;color:#9ba8b8;font-size:13px">No completed tasks found for this period</div>';
+}
+
+function renderTimingTable(members){
+  document.getElementById('timingTableBody').innerHTML=members.map(m=>{
+    const color=avColor(m.name);
+    const rating=perfRating(m.ontime_pct,m.avgDays);
+    const avgDueColor=m.avgDue===null?'#8b97a8':m.avgDue>0?'#10b981':'#ef4444';
+    return `<tr class="${SMES.includes(m.name)?'trow-sme':'trow-mem'}">
+      <td><div class="tname"><div class="tav" style="background:${color}">${inits(m.name)}</div>${esc(m.name)}${SMES.includes(m.name)?'<span style="font-size:9px;background:#1C1500;color:#F59E0B;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px">SME</span>':''}</div></td>
+      <td><span class="num-tot">${m.tasks}</span></td>
+      <td><span style="font-weight:700;color:#2563EB">${m.avgDays!==null?m.avgDays.toFixed(1)+'d':'—'}</span></td>
+      <td><span style="font-weight:700;color:#10b981">${m.fastest!==null?m.fastest.toFixed(1)+'d':'—'}</span></td>
+      <td><span style="font-weight:700;color:#ef4444">${m.slowest!==null?m.slowest.toFixed(1)+'d':'—'}</span></td>
+      <td><span style="font-weight:700;color:${m.ontime_pct!==null?(m.ontime_pct>=75?'#10b981':m.ontime_pct>=50?'#f59e0b':'#ef4444'):'#8b97a8'}">${m.ontime_pct!==null?m.ontime_pct+'%':'—'}</span></td>
+      <td><span style="font-weight:700;color:${avgDueColor}">${m.avgDue!==null?(m.avgDue>0?'+':'')+m.avgDue.toFixed(1)+'d':'—'}</span></td>
+      <td><span class="perf-badge ${rating.cls}" style="font-size:10px">${rating.label}</span></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="8" style="padding:20px;text-align:center;color:#9ba8b8">No data</td></tr>';
+}
+
+function renderTimingCharts(members, taskRows){
+  const withTasks=members.filter(m=>m.tasks>0).sort((a,b)=>b.avgDays-a.avgDays).slice(0,14);
+  const labels=withTasks.map(m=>m.name.split(' ')[0]+' '+m.name.split(' ')[1]?.[0]+'.');
+  if(timingBarChart)timingBarChart.destroy();
+  timingBarChart=new Chart(document.getElementById('timingBarChart').getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[{data:withTasks.map(m=>m.avgDays!==null?+m.avgDays.toFixed(1):0),backgroundColor:withTasks.map(m=>m.avgDays<=5?'#10b98188':m.avgDays<=10?'#2563EB88':m.avgDays<=20?'#f59e0b88':'#ef444488'),borderColor:withTasks.map(m=>m.avgDays<=5?'#10b981':m.avgDays<=10?'#2563EB':m.avgDays<=20?'#f59e0b':'#ef4444'),borderWidth:1,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw} days avg`}}},scales:{x:{grid:{color:'#f0f2f5'},ticks:{font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10},color:'#6b7c93'}}}}
+  });
+  const withOntime=members.filter(m=>m.ontime_pct!==null&&m.tasks>0).sort((a,b)=>b.ontime_pct-a.ontime_pct).slice(0,14);
+  if(ontimeChart)ontimeChart.destroy();
+  ontimeChart=new Chart(document.getElementById('ontimeChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:withOntime.map(m=>m.name.split(' ')[0]+' '+m.name.split(' ')[1]?.[0]+'.'),datasets:[{data:withOntime.map(m=>m.ontime_pct),backgroundColor:withOntime.map(m=>m.ontime_pct>=75?'#10b98188':m.ontime_pct>=50?'#f59e0b88':'#ef444488'),borderColor:withOntime.map(m=>m.ontime_pct>=75?'#10b981':m.ontime_pct>=50?'#f59e0b':'#ef4444'),borderWidth:1,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw}% on-time`}}},scales:{x:{grid:{color:'#f0f2f5'},ticks:{font:{size:10},callback:v=>v+'%'},max:100},y:{grid:{display:false},ticks:{font:{size:10},color:'#6b7c93'}}}}
+  });
+  const scatterData=taskRows.filter(r=>r.daysVsDue!==null).map(r=>({x:r.daysVsDue,y:r.daysToComplete,label:r.assignee}));
+  if(scatterChart)scatterChart.destroy();
+  scatterChart=new Chart(document.getElementById('scatterChart').getContext('2d'),{
+    type:'scatter',
+    data:{datasets:[
+      {label:'Early',data:scatterData.filter(d=>d.x>0),backgroundColor:'#10b98166',borderColor:'#10b981',borderWidth:1,pointRadius:4},
+      {label:'On-time',data:scatterData.filter(d=>d.x===0),backgroundColor:'#2563EB66',borderColor:'#2563EB',borderWidth:1,pointRadius:4},
+      {label:'Late',data:scatterData.filter(d=>d.x<0),backgroundColor:'#ef444466',borderColor:'#ef4444',borderWidth:1,pointRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:10,padding:7}},tooltip:{callbacks:{label:ctx=>`${ctx.raw.label}: ${ctx.raw.x>0?'+':''}${ctx.raw.x}d vs due, ${ctx.raw.y.toFixed(1)}d to complete`}}},scales:{x:{grid:{color:'#f0f2f5'},ticks:{font:{size:10}},title:{display:true,text:'Days vs due (+early / −late)',font:{size:10}}},y:{grid:{color:'#f0f2f5'},ticks:{font:{size:10}},title:{display:true,text:'Days to complete',font:{size:10}}}}}
+  });
+}
+
+async function loadTiming(period, e){
+  if(lastTimingPeriod===period)return;
+  lastTimingPeriod=period;
+  document.querySelectorAll('.t-period-btn').forEach(b=>b.classList.remove('active'));
+  if(e&&e.target)e.target.classList.add('active');
+  document.getElementById('t-placeholder').style.display='none';
+  document.getElementById('t-content').style.display='none';
+  const loadEl=document.getElementById('t-loading');
+  loadEl.style.display='flex';
+  const labels={week:'This Week',month:'This Month',quarter:'This Quarter',year:'This Year',all:'All Time'};
+  document.getElementById('t-period-note').textContent=`Loading ${labels[period]}...`;
+  try{
+    const now=new Date();
+    const sinceMap={
+      week:new Date(now.getFullYear(),now.getMonth(),now.getDate()-7).toISOString(),
+      month:new Date(now.getFullYear(),now.getMonth(),1).toISOString(),
+      quarter:new Date(now.getFullYear(),Math.floor(now.getMonth()/3)*3,1).toISOString(),
+      year:new Date(now.getFullYear(),0,1).toISOString(),
+      all:'2020-01-01T00:00:00.000Z'
+    };
+    const since=sinceMap[period];
+    const maxPages=period==='all'?12:5;
+    let tasks=[],offset=null,page=1;
+    while(page<=maxPages){
+      document.getElementById('t-load-text').textContent=`Fetching page ${page}... (${tasks.length} completed tasks)`;
+      const params={project:PROJECT_ID,limit:100,opt_fields:'gid,name,completed,completed_at,created_at,due_on,permalink_url,assignee.name',completed_since:since};
+      if(offset)params.offset=offset;
+      const parsed=await asanaGet(params);
+      const batch=(parsed.data||[]).filter(t=>t.completed===true&&t.assignee&&TEAM_SET.has(t.assignee.name)&&t.completed_at&&t.created_at);
+      tasks.push(...batch);
+      const np=parsed.next_page;
+      if(!np||!np.offset)break;
+      offset=np.offset;page++;
+    }
+    const taskRowsLocal=tasks.map(t=>{
+      const daysToComplete=(new Date(t.completed_at)-new Date(t.created_at))/86400000;
+      let daysVsDue=null;
+      if(t.due_on) daysVsDue=Math.round((new Date(t.due_on+'T23:59:59.000Z')-new Date(t.completed_at))/86400000);
+      return{gid:t.gid,name:t.name,assignee:t.assignee.name,daysToComplete,daysVsDue,completedAt:t.completed_at,dueOn:t.due_on};
+    });
+    timingTaskRows=taskRowsLocal;
+    const memberMap={};
+    for(const n of ALL_MEMBERS)memberMap[n]={name:n,tasks:0,totalDays:0,daysVsDueList:[],early:0,ontime:0,late:0,nodue:0,allDays:[]};
+    for(const row of taskRowsLocal){
+      const m=memberMap[row.assignee]; if(!m)continue;
+      m.tasks++; m.totalDays+=row.daysToComplete; m.allDays.push(row.daysToComplete);
+      if(row.daysVsDue===null){m.nodue++;}
+      else{m.daysVsDueList.push(row.daysVsDue);if(row.daysVsDue>0)m.early++;else if(row.daysVsDue===0)m.ontime++;else m.late++;}
+    }
+    const membersArr=ALL_MEMBERS.map(n=>{
+      const m=memberMap[n];
+      const avgDays=m.tasks>0?m.totalDays/m.tasks:null;
+      const withDue=m.daysVsDueList.length;
+      const ontime_pct=withDue>0?Math.round((m.early+m.ontime)/withDue*100):null;
+      const avgDue=withDue>0?m.daysVsDueList.reduce((a,b)=>a+b,0)/withDue:null;
+      const sorted=[...m.allDays].sort((a,b)=>a-b);
+      return{...m,avgDays,ontime_pct,avgDue,fastest:sorted[0]??null,slowest:sorted[sorted.length-1]??null};
+    }).filter(m=>m.tasks>0).sort((a,b)=>b.tasks-a.tasks);
+    timingMemberData=membersArr;
+    const totalTasks=taskRowsLocal.length;
+    const allDays=taskRowsLocal.map(r=>r.daysToComplete);
+    const teamAvgDays=allDays.length?allDays.reduce((a,b)=>a+b,0)/allDays.length:0;
+    const withDue=taskRowsLocal.filter(r=>r.daysVsDue!==null);
+    const teamOntime=withDue.length?Math.round(withDue.filter(r=>r.daysVsDue>=0).length/withDue.length*100):null;
+    const teamAvgDue=withDue.length?withDue.reduce((a,r)=>a+r.daysVsDue,0)/withDue.length:null;
+    document.getElementById('t-avg-days').textContent=teamAvgDays.toFixed(1)+'d';
+    document.getElementById('t-ontime-pct').textContent=teamOntime!==null?teamOntime+'%':'N/A';
+    document.getElementById('t-avg-due').textContent=teamAvgDue!==null?(teamAvgDue>0?'+':'')+teamAvgDue.toFixed(1)+'d':'N/A';
+    document.getElementById('t-task-count').textContent=totalTasks;
+    document.getElementById('t-chart-badge').textContent=membersArr.length+' members';
+    document.getElementById('t-period-note').textContent=`${labels[period]} · ${totalTasks} tasks analysed`;
+    renderTimingCharts(membersArr,taskRowsLocal);
+    renderTimingCards(membersArr);
+    renderTimingTable(membersArr);
+    loadEl.style.display='none';
+    document.getElementById('t-content').style.display='block';
+  }catch(err){
+    document.getElementById('t-load-text').textContent='Error: '+err.message;
+    console.error(err);
+  }
+}
+</script>
+
+<!-- ── Performance Review Chat ── -->
+<button id="ai-fab" onclick="toggleChat()" title="Performance Review">💬</button>
+
+<div id="ai-panel">
+  <div id="ai-header">
+    <div id="ai-header-left">
+      <div id="ai-avatar">📊</div>
+      <div>
+        <div id="ai-title">Performance Review</div>
+        <div id="ai-sub">Live Asana data analysis</div>
+      </div>
+    </div>
+    <button id="ai-close" onclick="toggleChat()">✕</button>
+  </div>
+
+  <div id="ai-messages">
+    <div class="ai-msg bot">👋 Ask me about any team member's performance or the overall team.<br><br>Try: <b>"Review [member name]"</b> or <b>"How is the team doing?"</b></div>
+  </div>
+
+  <div id="ai-suggestions">
+    <button class="ai-chip" onclick="quickAsk('How is the team doing overall?')">📊 Team overview</button>
+    <button class="ai-chip" onclick="quickAsk('Who has the most overdue tasks?')">⚠️ Most overdue</button>
+    <button class="ai-chip" onclick="quickAsk('Who is performing best?')">⭐ Top performer</button>
+  </div>
+
+  <div id="ai-input-row">
+    <input id="ai-input" type="text" placeholder="e.g. Review [member name]…" onkeydown="if(event.key==='Enter')sendChat();" />
+    <button id="ai-send" onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<script>
+
+// ══════════════════════════════════════════
+//  PERFORMANCE REVIEW CHAT (no API needed)
+// ══════════════════════════════════════════
+function toggleChat(){
+  const p=document.getElementById('ai-panel');
+  p.classList.toggle('open');
+  if(p.classList.contains('open')) document.getElementById('ai-input').focus();
+}
+
+function quickAsk(t){document.getElementById('ai-input').value=t;sendChat();}
+
+function addUserMsg(t){
+  const d=document.createElement('div');
+  d.className='ai-msg user';d.textContent=t;
+  document.getElementById('ai-messages').appendChild(d);scrollChat();
+}
+
+function addBotHtml(html){
+  const d=document.createElement('div');
+  d.className='ai-msg bot';d.innerHTML=html;
+  document.getElementById('ai-messages').appendChild(d);scrollChat();
+}
+
+function scrollChat(){const m=document.getElementById('ai-messages');m.scrollTop=m.scrollHeight;}
+
+function getMemberReview(name){
+  const tasks=window.allTasks||[];
+  const active=tasks.filter(t=>!isRecurring(t)&&t.assignee?.name===name);
+  const stats=(window._memberStats||{})[name];
+  if(!stats&&active.length===0) return null;
+
+  const today=todayStr();
+  const s=stats||{total:0,overdue:0,today:0,week:0,noDue:0};
+
+  // Avg days open
+  const avgDays=active.length?Math.round(active.reduce((sum,t)=>{
+    const c=t.created_at?new Date(t.created_at):new Date();
+    return sum+(Date.now()-c.getTime())/(864e5);
+  },0)/active.length):0;
+
+  // Team averages for comparison
+  const allStats=Object.values(window._memberStats||{}).filter(x=>x.total>0);
+  const teamAvgTotal=allStats.length?Math.round(allStats.reduce((s,x)=>s+x.total,0)/allStats.length):0;
+  const teamAvgOverdue=allStats.length?Math.round(allStats.reduce((s,x)=>s+x.overdue,0)/allStats.length):0;
+
+  // Score: lower overdue & higher completion = better
+  const overdueRate=s.total>0?s.overdue/s.total:0;
+  let badge,badgeClass;
+  if(overdueRate===0&&s.total<=teamAvgTotal){badge='Excellent';badgeClass='badge-great';}
+  else if(overdueRate<0.2&&s.total<=teamAvgTotal*1.5){badge='On Track';badgeClass='badge-good';}
+  else if(overdueRate>=0.4||s.overdue>=5){badge='Needs Attention';badgeClass='badge-watch';}
+  else{badge='Moderate Load';badgeClass='badge-good';}
+
+  // Build bullets
+  const bullets=[];
+  bullets.push(`<b>Open tasks:</b> ${s.total} (team avg: ${teamAvgTotal})`);
+  bullets.push(`<b>Overdue:</b> ${s.overdue} task${s.overdue!==1?'s':''} (team avg: ${teamAvgOverdue})`);
+  bullets.push(`<b>Due this week:</b> ${s.week}`);
+  bullets.push(`<b>Avg task age:</b> ${avgDays} days open`);
+  if(s.noDue>0) bullets.push(`<b>No due date:</b> ${s.noDue} task${s.noDue!==1?'s':''} — consider adding deadlines`);
+
+  // Insight
+  let insight='';
+  if(s.overdue===0&&s.total>0) insight='✅ No overdue tasks — great discipline on deadlines.';
+  else if(overdueRate>=0.5) insight='🔴 More than half of tasks are overdue — may need reprioritisation or support.';
+  else if(overdu
