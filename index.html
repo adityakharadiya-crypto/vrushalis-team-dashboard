@@ -1377,12 +1377,10 @@ function renderFlowChart(){
     let d=new Date(Date.UTC(2026,3,1));
     const [ey,em]=todayIST.split('-').map(Number);
     const endM=new Date(Date.UTC(ey,em-1,1));
-    const curMonthKey=todayIST.slice(0,7);
     while(d<=endM){
       const yr=d.getUTCFullYear(),mo=d.getUTCMonth();
-      const bk=yr+'-'+(mo+1).toString().padStart(2,'0');
-      buckets.push(bk);
-      labels.push(_MN[mo]+' '+yr+(bk===curMonthKey?' ★':''));
+      buckets.push(yr+'-'+(mo+1).toString().padStart(2,'0'));
+      labels.push(_MN[mo]+' '+yr);
       d.setUTCMonth(mo+1);
     }
   } else {
@@ -1436,7 +1434,7 @@ function renderFlowChart(){
   const totalIn=intakeData.reduce((a,b)=>a+b,0);
   const totalCo=compData.reduce((a,b)=>a+b,0);
   const noteEl=document.getElementById('flow-note');
-  if(noteEl)noteEl.textContent=totalIn.toLocaleString()+' in · '+totalCo.toLocaleString()+' done'+(canDrill?' · click month to see daily · ★ = current month (partial)':'');
+  if(noteEl)noteEl.textContent=totalIn.toLocaleString()+' in · '+totalCo.toLocaleString()+' done'+(canDrill?' · click month to see daily':'');
 
   if(flowChart)flowChart.destroy();
   const ctx=document.getElementById('flowChart').getContext('2d');
@@ -1503,9 +1501,6 @@ async function refreshDashboard(){
   document.getElementById('loader').style.display='flex';
   document.getElementById('loadBar').style.width='0%';
   document.getElementById('loadSub').textContent='Refreshing…';
-  // Reset background fetch guard so _allBoardTasks is always re-fetched on Refresh
-  window._boardTotalFetched=false;
-  window._allBoardTasks=null;
   await init();
 }
 async function init(){
