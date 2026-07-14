@@ -1358,36 +1358,55 @@ const _MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','De
 function flowDrillUp(){_flowLevel='monthly';_flowSelMonth=null;renderFlowChart();}
 
 function renderFlowChart(){
+  const FLOW_CACHE_KEY='asana_flow_cache_'+PROJECT_ID;
+  const FLOW_CACHE_TTL=4*60*60*1000; // 4 hours
   const allBoard=window._allBoardTasks;
   const loadEl=document.getElementById('flow-loading');
   const wrapEl=document.getElementById('flow-chart-wrap');
-  if(!allBoard||!allBoard.length){if(loadEl)loadEl.style.display='flex';if(wrapEl)wrapEl.style.display='none';return;}
-  if(loadEl)loadEl.style.display='none';
-  if(wrapEl)wrapEl.style.display='block';
 
-  // All dates displayed and bucketed in IST (UTC+5:30)
+  // IST helpers
   const IST=330*60000;
   const todayIST=new Date(Date.now()+IST).toISOString().slice(0,10);
   function toISTDate(s){if(!s)return null;return new Date(new Date(s).getTime()+IST).toISOString().slice(0,10);}
-  function toISTMonth(s){if(!s)return null;return toISTDate(s).slice(0,7);}
 
+  // Step 1: get per-IST-date counts — from live data or localStorage cache
+  let intakeByDate,compByDate;
+  if(allBoard&&allBoard.length){
+    intakeByDate={};compByDate={};
+    for(const t of allBoard){
+      if(t.created_at){const d=toISTDate(t.created_at);if(d)intakeByDate[d]=(intakeByDate[d]||0)+1;}
+      if(t.completed&&t.completed_at){const d=toISTDate(t.completed_at);if(d)compByDate[d]=(compByDate[d]||0)+1;}
+    }
+    try{localStorage.setItem(FLOW_CACHE_KEY,JSON.stringify({ts:Date.now(),intakeByDate,compByDate}));}catch(e){}
+  } else {
+    const cached=JSON.parse(localStorage.getItem(FLOW_CACHE_KEY)||'null');
+    if(cached&&(Date.now()-cached.ts)<FLOW_CACHE_TTL){
+      intakeByDate=cached.intakeByDate||{};compByDate=cached.compByDate||{};
+    } else {
+      if(loadEl)loadEl.style.display='flex';if(wrapEl)wrapEl.style.display='none';return;
+    }
+  }
+  if(loadEl)loadEl.style.display='none';
+  if(wrapEl)wrapEl.style.display='block';
+
+  // Step 2: build time buckets
   let buckets=[],labels=[];
-
   if(_flowLevel==='monthly'){
     let d=new Date(Date.UTC(2026,3,1));
     const [ey,em]=todayIST.split('-').map(Number);
     const endM=new Date(Date.UTC(ey,em-1,1));
+    const curMonthKey=todayIST.slice(0,7);
     while(d<=endM){
       const yr=d.getUTCFullYear(),mo=d.getUTCMonth();
-      buckets.push(yr+'-'+(mo+1).toString().padStart(2,'0'));
-      labels.push(_MN[mo]+' '+yr);
+      const bk=yr+'-'+(mo+1).toString().padStart(2,'0');
+      buckets.push(bk);
+      labels.push(_MN[mo]+' '+yr+(bk===curMonthKey?' ★':''));
       d.setUTCMonth(mo+1);
     }
   } else {
-    // Daily — IST dates for selected month, or last 30 IST days for current month
     const [y,m]=_flowSelMonth.split('-').map(Number);
     const [curYear,curMonth]=todayIST.split('-').map(Number);
-    let startD, endD;
+    let startD,endD;
     if(y===curYear&&m===curMonth){
       endD=new Date(todayIST+'T00:00:00Z');
       startD=new Date(endD);startD.setUTCDate(startD.getUTCDate()-29);
@@ -1399,21 +1418,19 @@ function renderFlowChart(){
     while(d<=endD){
       const ds=d.toISOString().slice(0,10);
       const [,bm,bd]=ds.split('-').map(Number);
-      buckets.push(ds);
-      labels.push(_MN[bm-1]+' '+bd);
+      buckets.push(ds);labels.push(_MN[bm-1]+' '+bd);
       d.setUTCDate(d.getUTCDate()+1);
     }
   }
 
-  const intakeMap={},compMap={};
-  for(const b of buckets){intakeMap[b]=0;compMap[b]=0;}
-  for(const t of allBoard){
-    if(t.created_at){const k=_flowLevel==='monthly'?toISTMonth(t.created_at):toISTDate(t.created_at);if(k&&intakeMap[k]!==undefined)intakeMap[k]++;}
-    if(t.completed&&t.completed_at){const k=_flowLevel==='monthly'?toISTMonth(t.completed_at):toISTDate(t.completed_at);if(k&&compMap[k]!==undefined)compMap[k]++;}
-  }
+  // Step 3: aggregate per-date counts into buckets
+  const intakeData=buckets.map(b=>_flowLevel==='monthly'
+    ?Object.entries(intakeByDate).filter(([d])=>d.slice(0,7)===b).reduce((s,[,v])=>s+v,0)
+    :(intakeByDate[b]||0));
+  const compData=buckets.map(b=>_flowLevel==='monthly'
+    ?Object.entries(compByDate).filter(([d])=>d.slice(0,7)===b).reduce((s,[,v])=>s+v,0)
+    :(compByDate[b]||0));
 
-  const intakeData=buckets.map(b=>intakeMap[b]);
-  const compData=buckets.map(b=>compMap[b]);
   const canDrill=_flowLevel==='monthly';
 
   // Breadcrumb
@@ -1434,7 +1451,7 @@ function renderFlowChart(){
   const totalIn=intakeData.reduce((a,b)=>a+b,0);
   const totalCo=compData.reduce((a,b)=>a+b,0);
   const noteEl=document.getElementById('flow-note');
-  if(noteEl)noteEl.textContent=totalIn.toLocaleString()+' in · '+totalCo.toLocaleString()+' done'+(canDrill?' · click month to see daily':'');
+  if(noteEl)noteEl.textContent=totalIn.toLocaleString()+' in · '+totalCo.toLocaleString()+' done'+(canDrill?' · click month to see daily · ★ = current month (partial)':'')+(allBoard?'':' · from cache');
 
   if(flowChart)flowChart.destroy();
   const ctx=document.getElementById('flowChart').getContext('2d');
@@ -1501,6 +1518,9 @@ async function refreshDashboard(){
   document.getElementById('loader').style.display='flex';
   document.getElementById('loadBar').style.width='0%';
   document.getElementById('loadSub').textContent='Refreshing…';
+  // Reset background fetch guard so _allBoardTasks is always re-fetched on Refresh
+  window._boardTotalFetched=false;
+  window._allBoardTasks=null;
   await init();
 }
 async function init(){
