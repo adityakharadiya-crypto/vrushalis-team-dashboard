@@ -1009,6 +1009,7 @@ function buildMemberStats(tasks){
   for(const task of tasks){
     const an=task.assignee?.name;
     if(!an||!stats[an])continue;
+    if(task.completed)continue;
     const m=stats[an]; m.total++;
     const due=task.due_on;
     if(!due)m.noDue++;
@@ -1024,7 +1025,7 @@ function buildMemberStats(tasks){
 // ── Overview ──
 function renderOverview(tasks,stats){
   const t=todayStr(),w=addDays(7);
-  const teamTasks=tasks.filter(tk=>tk.assignee&&TEAM_SET.has(tk.assignee.name));
+  const teamTasks=tasks.filter(tk=>tk.assignee&&TEAM_SET.has(tk.assignee.name)&&!tk.completed);
   const overdue=teamTasks.filter(tk=>tk.due_on&&tk.due_on<t).length;
   const today=teamTasks.filter(tk=>tk.due_on===t).length;
   const week=teamTasks.filter(tk=>tk.due_on&&tk.due_on>=t&&tk.due_on<=w).length;
