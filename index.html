@@ -1024,6 +1024,8 @@ function buildMemberStats(tasks){
 
 // ── Overview ──
 function renderOverview(tasks,stats){
+  // Completed tasks never count toward any card, chart or list on the Overview
+  tasks=(tasks||[]).filter(tk=>!tk.completed);
   const t=todayStr(),w=addDays(7);
   const teamTasks=tasks.filter(tk=>tk.assignee&&TEAM_SET.has(tk.assignee.name)&&!tk.completed);
   const overdue=teamTasks.filter(tk=>tk.due_on&&tk.due_on<t).length;
@@ -1042,20 +1044,29 @@ function renderOverview(tasks,stats){
   const ovCtx=document.getElementById('overdueChart').getContext('2d');
   overdueChart=new Chart(ovCtx,{type:'bar',data:{labels:ovMembers.map(x=>x.name.split(' ')[0]+' '+x.name.split(' ')[1]?.[0]+'.'),datasets:[{data:ovMembers.map(x=>x.ov),backgroundColor:'#ef444488',borderColor:'#ef4444',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#f0f2f5'},ticks:{font:{size:10}}},x:{grid:{display:false},ticks:{font:{size:10},color:'#6b7c93'}}}}});
 
-  // Week daily breakdown
-  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  // Week daily breakdown — bars are clickable, open that day's task list
   const today_=new Date();today_.setHours(0,0,0,0);
   const dayCounts=Array(7).fill(0);
+  const dayTasks=Array.from({length:7},()=>[]);
+  const dayDates=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(today_);d.setDate(d.getDate()+i);
+    dayDates.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+  }
   for(const tk of tasks){
     if(!tk.due_on)continue;
-    const d=new Date(tk.due_on+'T00:00:00');
-    const diff=Math.round((d-today_)/86400000);
-    if(diff>=0&&diff<7)dayCounts[diff]++;
+    const idx=dayDates.indexOf(tk.due_on);
+    if(idx>=0){dayCounts[idx]++;dayTasks[idx].push(tk);}
   }
   const dayLabels=Array.from({length:7},(_,i)=>{const d=new Date(today_);d.setDate(d.getDate()+i);return['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+d.getDate();});
+  window._weekDayTasks=dayTasks;window._weekDayLabels=dayLabels;window._weekDayDates=dayDates;
   if(weekChart)weekChart.destroy();
   const wCtx=document.getElementById('weekChart').getContext('2d');
-  weekChart=new Chart(wCtx,{type:'bar',data:{labels:dayLabels,datasets:[{data:dayCounts,backgroundColor:dayCounts.map((v,i)=>i===0?'#f59e0b99':'#2563EB55'),borderColor:dayCounts.map((v,i)=>i===0?'#f59e0b':'#2563EB'),borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#f0f2f5'},ticks:{font:{size:10},stepSize:1}},x:{grid:{display:false},ticks:{font:{size:10},color:'#6b7c93'}}}}});
+  weekChart=new Chart(wCtx,{type:'bar',data:{labels:dayLabels,datasets:[{data:dayCounts,backgroundColor:dayCounts.map((v,i)=>i===0?'#f59e0b99':'#2563EB55'),borderColor:dayCounts.map((v,i)=>i===0?'#f59e0b':'#2563EB'),borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,
+    onClick:(evt,els)=>{if(els.length)openDayModal(els[0].index);},
+    onHover:(evt,els)=>{if(evt.native&&evt.native.target)evt.native.target.style.cursor=els.length?'pointer':'default';},
+    plugins:{legend:{display:false},tooltip:{callbacks:{footer:()=>['\u2193 Click to see tasks']}}},
+    scales:{y:{grid:{color:'#f0f2f5'},ticks:{font:{size:10},stepSize:1}},x:{grid:{display:false},ticks:{font:{size:10},color:'#6b7c93'}}}}});
 
   // Health chart
   const withDue=tasks.filter(tk=>tk.due_on).length;
@@ -1524,14 +1535,61 @@ async function refreshDashboard(){
   window._allBoardTasks=null;
   await init();
 }
+// ── Overview cache — instant paint on reload ──────────────────
+const OV_CACHE_KEY='asana_ov_cache_'+PROJECT_ID;
+const OV_CACHE_TTL=4*60*60*1000; // 4 hours
+function slimTask(t){
+  return {gid:t.gid,name:t.name,due_on:t.due_on,created_at:t.created_at,modified_at:t.modified_at,
+    completed:t.completed,permalink_url:t.permalink_url,
+    assignee:t.assignee?{name:t.assignee.name}:null,
+    memberships:(t.memberships||[]).filter(m=>m.project&&m.project.gid===PROJECT_ID)
+      .map(m=>({project:{gid:m.project.gid},section:{name:(m.section&&m.section.name)||''}})),
+    custom_fields:(t.custom_fields||[]).map(f=>({gid:f.gid,name:f.name,display_value:f.display_value}))};
+}
+function saveOverviewCache(tasks){
+  try{
+    const payload=JSON.stringify({ts:Date.now(),tasks:tasks.map(slimTask)});
+    // localStorage is ~5MB (UTF-16 = 2 bytes/char). Skip quietly if oversized
+    // rather than throwing — a missing cache just means a normal slow load.
+    if(payload.length>1800000){try{localStorage.removeItem(OV_CACHE_KEY);}catch(_){}return;}
+    localStorage.setItem(OV_CACHE_KEY,payload);
+  }catch(e){try{localStorage.removeItem(OV_CACHE_KEY);}catch(_){}}
+}
+function loadOverviewCache(){
+  try{
+    const c=JSON.parse(localStorage.getItem(OV_CACHE_KEY)||'null');
+    if(c&&Array.isArray(c.tasks)&&c.tasks.length&&(Date.now()-c.ts)<OV_CACHE_TTL)return c;
+  }catch(e){}
+  return null;
+}
 async function init(){
   try{
+    // Paint instantly from cache, then refresh live in the background
+    const _ovc=loadOverviewCache();
+    if(_ovc&&!window._ovCachePainted){
+      window._ovCachePainted=true;
+      try{
+        allTasks=_ovc.tasks;
+        const cAct=_ovc.tasks.filter(t=>!isRecurring(t));
+        window._activeTasks=cAct;
+        populateMonthFilter();
+        const cSt=buildMemberStats(cAct);
+        window._memberStats=cSt;
+        renderOverview(cAct,cSt);
+        renderMembers();
+        renderBrands(cAct);
+        const _am=Math.round((Date.now()-_ovc.ts)/60000);
+        document.getElementById('updatedTag').textContent='Cached '+(_am<60?_am+'m':Math.round(_am/60)+'h')+' ago \u00b7 refreshing\u2026';
+        document.getElementById('loader').style.display='none';
+      }catch(e){console.warn('Cache paint failed:',e);}
+    }
     document.getElementById('loadSub').textContent='Connecting to Asana…';
     const tasks=await fetchAllIncomplete();
     allTasks=tasks;
     // Exclude recurring tasks from all overview/member/brand tabs
     const activeTasks=tasks.filter(t=>!isRecurring(t));
     window._activeTasks=activeTasks;
+    saveOverviewCache(tasks);
     document.getElementById('loadBar').style.width='90%';
     document.getElementById('loadSub').textContent='Building dashboard…';
 
@@ -2167,6 +2225,40 @@ function openStatModal(type){
   document.getElementById('modal-sub').textContent=subtitle;
   document.getElementById('modal-dl-btn').style.display='inline-flex';
   document.getElementById('modal-body').innerHTML=bodyHtml||'<div style="padding:30px;text-align:center;color:#6B7280">No tasks found</div>';
+  const overlay=document.getElementById('taskModal');
+  overlay.style.display='flex';document.body.style.overflow='hidden';
+}
+function openDayModal(dayIdx){
+  const list=(window._weekDayTasks||[])[dayIdx]||[];
+  const label=(window._weekDayLabels||[])[dayIdx]||'';
+  const dateStr=(window._weekDayDates||[])[dayIdx]||'';
+  const isToday=dateStr===todayStr();
+  const sorted=list.slice().sort((a,b)=>{
+    const an=a.assignee?.name||'zzz',bn=b.assignee?.name||'zzz';
+    return an<bn?-1:an>bn?1:0;
+  });
+  const byMember={};
+  for(const t of sorted){const n=t.assignee?.name||'Unassigned';if(!byMember[n])byMember[n]=[];byMember[n].push(t);}
+  const members=Object.entries(byMember).sort((a,b)=>b[1].length-a[1].length);
+  let bodyHtml='';
+  for(const[name,items]of members){
+    const av2=name.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+    const c=avColor(name);
+    bodyHtml+=`<div style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="width:26px;height:26px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0">${av2}</div><span style="font-size:13px;font-weight:600">${esc(name)}</span><span style="font-size:11px;color:#6B7280;margin-left:auto">${items.length} task${items.length!==1?'s':''}</span></div>`;
+    for(const t of items){
+      const sec=getSection(t)||'No Section';
+      bodyHtml+=`<a href="${taskUrl(t)}" target="_blank" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 6px;font-size:12px;color:#F9FAFB;text-decoration:none;border-bottom:1px solid #1E2A3A;border-radius:3px" onmouseover="this.style.background='#131f35'" onmouseout="this.style.background=''"><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(t.name)}">${esc(t.name.length>60?t.name.slice(0,60)+'\u2026':t.name)}</span><span style="font-size:10px;color:#6B7280;white-space:nowrap;flex-shrink:0">${esc(sec)}</span></a>`;
+    }
+    bodyHtml+='</div>';
+  }
+  window._modalTasks=sorted;
+  window._modalTitle='Due '+label;
+  const avEl=document.getElementById('modal-av');
+  avEl.textContent=isToday?'\ud83d\udfe1':'\ud83d\udcc5';avEl.style.background='transparent';avEl.style.fontSize='22px';
+  document.getElementById('modal-name').textContent='Due '+label+(isToday?' (Today)':'');
+  document.getElementById('modal-sub').textContent=sorted.length+' task'+(sorted.length!==1?'s':'')+' due on '+(dateStr||label);
+  document.getElementById('modal-dl-btn').style.display='inline-flex';
+  document.getElementById('modal-body').innerHTML=bodyHtml||'<div style="padding:30px;text-align:center;color:#6B7280">No tasks due this day</div>';
   const overlay=document.getElementById('taskModal');
   overlay.style.display='flex';document.body.style.overflow='hidden';
 }
